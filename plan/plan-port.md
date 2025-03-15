@@ -16,7 +16,7 @@ The current Python project is an MCP (Model Context Protocol) server that expose
 
 ## Current Project Structure
 
-The Python implementation consists of:
+The Python implementation (located in `/python-version`) consists of:
 
 1. **Config Class**: Handles configuration and command line arguments
 2. **EvidenceDataDiscovery**: Discovers Evidence.dev data sources and parquet files
@@ -36,6 +36,9 @@ The TypeScript port will be structured as follows:
 │   ├── server.ts               # MCP server implementation
 │   └── index.ts                # Main entry point
 ├── types/
+├── /sources/                   # Existing - Do not modify (real production data)
+├── /.evidence/                 # Existing - Do not modify (real production data)
+├── /python-version/            # Original Python implementation - for reference
 │   └── index.d.ts              # TypeScript type definitions
 ├── tests/                      # Test files
 ├── package.json                # Dependencies and scripts
@@ -52,14 +55,15 @@ The TypeScript port will require the following dependencies:
    - `duckdb`: Node.js bindings for DuckDB
    - `node-parquet`: For working with Parquet files
    - `zod`: For schema validation (used by MCP SDK)
+   - `commander`: For command-line argument parsing
 
 2. **Development Dependencies**:
    - `typescript`: TypeScript compiler
    - `ts-node`: TypeScript execution environment
-   - `jest`: Testing framework
+   - `vitest`: Testing framework
    - `@types/*`: TypeScript type definitions for dependencies
 
-## Implementation Plan
+## Implementation Plan (TypeScript - Node.js)
 
 ### Phase 1: Project Setup
 
@@ -110,7 +114,7 @@ The TypeScript port will require the following dependencies:
 2. **Documentation**:
    - Document APIs
    - Create usage examples
-   - Add installation instructions
+   - Add installation and usage instructions
 
 ## Technical Challenges and Solutions
 
@@ -137,6 +141,12 @@ The TypeScript port will require the following dependencies:
 **Challenge**: Error handling patterns differ between Python and TypeScript.
 
 **Solution**: Implement appropriate TypeScript error handling patterns, using the MCP SDK's error types where applicable.
+
+### 5. Testing with Real Data
+
+**Challenge**: Using the existing `/sources` and `/.evidence` folders for testing without modifying them.
+
+**Solution**: Create test cases that use these directories for input data but write any outputs to temporary directories. Use vitest for testing instead of Jest.
 
 ## Migration Steps
 
