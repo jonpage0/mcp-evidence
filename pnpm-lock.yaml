@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@duckdb/node-api':
+        specifier: 1.2.1-alpha.16
+        version: 1.2.1-alpha.16
       '@modelcontextprotocol/sdk':
         specifier: ^1.7.0
         version: 1.7.0
@@ -51,6 +54,37 @@ packages:
   '@cspotcode/source-map-support@0.8.1':
     resolution: {integrity: sha512-IchNf6dN4tHoMFIn/7OE8LWZ19Y6q/67Bmf6vnGREv8RSbBVb9LPJxEcnwrcwX6ixSvaiGoomAUvu4YSxXrVgw==}
     engines: {node: '>=12'}
+
+  '@duckdb/node-api@1.2.1-alpha.16':
+    resolution: {integrity: sha512-r2wkrqcDl3IsmFffpTj7xgSUEkjVaqi7wV0uypQWw4wTM5bIYk5ABc/Hxn2xlwV9UBRnxhk0Ls0EJypYS7g8ZQ==}
+
+  '@duckdb/node-bindings-darwin-arm64@1.2.1-alpha.16':
+    resolution: {integrity: sha512-anfLXcxjo6S0Kx8Z+e6/ca7WayprJ8iI4cpTvzWQc9NT/vKFHcGjvhGAiosHvtjWGOvAYo+O/eyAcmzMzazlMg==}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@duckdb/node-bindings-darwin-x64@1.2.1-alpha.16':
+    resolution: {integrity: sha512-IA2bQ/f0qFYb7Sd+leSjNg/JMBpWVVBoCmqp/1zzlw6fwhtT0BMSAT3FL4306t5StA8biOznlHz3rN3jovdVxg==}
+    cpu: [x64]
+    os: [darwin]
+
+  '@duckdb/node-bindings-linux-arm64@1.2.1-alpha.16':
+    resolution: {integrity: sha512-zy9jTrrhTXJAOrYRTbT/HtBLClAoyo8vNRAqojFHVBxXL1nr4o+5Je9AJwb9IfS1/e38zdykDWeGnY/gB3NpfA==}
+    cpu: [arm64]
+    os: [linux]
+
+  '@duckdb/node-bindings-linux-x64@1.2.1-alpha.16':
+    resolution: {integrity: sha512-tdDAhUKenBhUQiTN+qvKj6nBshoooBLPbxVuLas8v64KmphjxOHd9zQ2KMzw1tN+fXhV9dqUTbCqiUN9A6ZFSQ==}
+    cpu: [x64]
+    os: [linux]
+
+  '@duckdb/node-bindings-win32-x64@1.2.1-alpha.16':
+    resolution: {integrity: sha512-FE9bZV8+LIiy5jQIsLoEmwLFIyPPJD4SXjKNCaU48DNVf1q81ZkhnoT7PVgeyNJmkR6rG2+mq6LzTSmdCBX0ig==}
+    cpu: [x64]
+    os: [win32]
+
+  '@duckdb/node-bindings@1.2.1-alpha.16':
+    resolution: {integrity: sha512-6ITHy26o99zxUhCGOxwkQbfmi5I8VXNGanhnrOe3pqUYRDXvGAe6T2MmBymYwU+fMZB341UE8krw7hUkPLfIeA==}
 
   '@esbuild/aix-ppc64@0.21.5':
     resolution: {integrity: sha512-1SDgH6ZSPTlggy1yI6+Dbkiz8xzpHJEVAlF/AM1tHPLsf5STom9rwtjE4hKAF20FfXXNTFqEYXyJNWh1GiZedQ==}
@@ -1815,6 +1849,33 @@ snapshots:
   '@cspotcode/source-map-support@0.8.1':
     dependencies:
       '@jridgewell/trace-mapping': 0.3.9
+
+  '@duckdb/node-api@1.2.1-alpha.16':
+    dependencies:
+      '@duckdb/node-bindings': 1.2.1-alpha.16
+
+  '@duckdb/node-bindings-darwin-arm64@1.2.1-alpha.16':
+    optional: true
+
+  '@duckdb/node-bindings-darwin-x64@1.2.1-alpha.16':
+    optional: true
+
+  '@duckdb/node-bindings-linux-arm64@1.2.1-alpha.16':
+    optional: true
+
+  '@duckdb/node-bindings-linux-x64@1.2.1-alpha.16':
+    optional: true
+
+  '@duckdb/node-bindings-win32-x64@1.2.1-alpha.16':
+    optional: true
+
+  '@duckdb/node-bindings@1.2.1-alpha.16':
+    optionalDependencies:
+      '@duckdb/node-bindings-darwin-arm64': 1.2.1-alpha.16
+      '@duckdb/node-bindings-darwin-x64': 1.2.1-alpha.16
+      '@duckdb/node-bindings-linux-arm64': 1.2.1-alpha.16
+      '@duckdb/node-bindings-linux-x64': 1.2.1-alpha.16
+      '@duckdb/node-bindings-win32-x64': 1.2.1-alpha.16
 
   '@esbuild/aix-ppc64@0.21.5':
     optional: true

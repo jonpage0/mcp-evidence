@@ -4,7 +4,8 @@
 import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
-import { Config } from './config.js';
+// These imports are used at runtime
+import type { Config } from './config.js';
 import { EvidenceDataDiscovery } from './discovery.js';
 import { DuckDBDatabase } from './database.js';
 
@@ -159,12 +160,14 @@ export async function startServer(config: Config): Promise<void> {
     async (uri, { source, table }) => {
       try {
         // Get path to parquet file
-        const parquetPath = discovery.getParquetPath(source, table);
+        const sourceStr = Array.isArray(source) ? source[0] : source;
+        const tableStr = Array.isArray(table) ? table[0] : table;
+        const parquetPath = discovery.getParquetPath(sourceStr, tableStr);
         
         // Query the data
         const connection = db.connect();
         try {
-          const viewName = `${source}_${table}`;
+          const viewName = `${sourceStr}_${tableStr}`;
           const createViewSql = `CREATE VIEW "${viewName}" AS SELECT * FROM read_parquet('${parquetPath.replace(/'/g, "''")}')`;
           connection.prepare(createViewSql).run();
           
@@ -205,7 +208,8 @@ export async function startServer(config: Config): Promise<void> {
     async (uri, { query }) => {
       try {
         // URL decode the query
-        const decodedQuery = decodeURIComponent(query);
+        const queryStr = Array.isArray(query) ? query[0] : query;
+        const decodedQuery = decodeURIComponent(queryStr);
         
         // Execute the query
         const results = db.queryTable(decodedQuery);

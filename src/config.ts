@@ -1,8 +1,8 @@
 /**
  * Configuration for the Evidence.dev MCP server.
  */
-import fs from 'fs';
-import path from 'path';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 
 /**
  * Configuration options for the Evidence.dev MCP server.

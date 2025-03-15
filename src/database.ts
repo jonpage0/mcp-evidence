@@ -1,8 +1,10 @@
 /**
  * Interface to DuckDB for querying Evidence.dev parquet files.
  */
-import * as duckdb from 'duckdb';
-import { EvidenceDataDiscovery } from './discovery.js';
+// Using require for DuckDB since its CommonJS module doesn't work well with ES modules
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const duckdb = require('duckdb');
+import type { EvidenceDataDiscovery, SchemaData } from './discovery.js';
 
 /**
  * Interface to DuckDB for querying Evidence.dev parquet files.
@@ -25,10 +27,16 @@ export class DuckDBDatabase {
    * 
    * @returns A DuckDB connection.
    */
-  connect(): duckdb.Database {
+  connect() {
     // For in-memory databases, we can't use read_only mode
-    // We'll apply read-only constraints in our operations instead
-    return new duckdb.Database(':memory:');
+    // Wrap in try/catch to handle potential initialization errors
+    try {
+      // Return a new DuckDB connection
+      return new duckdb.Database(':memory:');
+    } catch (error) {
+      console.error('Error connecting to DuckDB:', error);
+      throw new Error(`Failed to initialize DuckDB: ${(error as Error).message}`);
+    }
   }
   
   /**
@@ -38,14 +46,14 @@ export class DuckDBDatabase {
    * @param parameters Optional parameters for the query.
    * @returns The query results as an array of objects.
    */
-  executeQuery(query: string, parameters?: Record<string, unknown>): any[] {
+  executeQuery(query: string, parameters?: Record<string, unknown>): unknown {
     const connection = this.connect();
     try {
       // Create a connection
       const db = connection.prepare(query);
       
       // Execute the query
-      let results: any[];
+      let results: unknown;
       if (parameters) {
         results = db.all(parameters);
       } else {
@@ -91,7 +99,7 @@ export class DuckDBDatabase {
    * @param table The name of the table.
    * @returns A list of schema field dictionaries.
    */
-  describeTable(source: string, table: string): any[] {
+  describeTable(source: string, table: string): SchemaData {
     return this.discovery.getTableSchema(source, table);
   }
   
@@ -101,7 +109,7 @@ export class DuckDBDatabase {
    * @param query The SQL query to execute.
    * @returns The query results as an array of objects.
    */
-  queryTable(query: string): any[] {
+  queryTable(query: string): unknown {
     const connection = this.connect();
     
     try {

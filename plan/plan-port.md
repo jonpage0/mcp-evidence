@@ -1,6 +1,16 @@
-# TypeScript Port Plan: MCP-Evidence Server
+# TypeScript Port Implementation Plan: MCP-Evidence Server
 
 This document outlines the plan for porting the Python-based MCP-Evidence server to TypeScript using the official MCP TypeScript SDK.
+
+## Executive Summary
+
+**Current Status**: The port is functionally complete with one major outstanding issue:
+
+- Data sources & tables discovery ✅ Successfully implemented
+- MCP tools & resources ✅ Successfully implemented 
+- Database querying ❌ Needs work (DuckDB integration issue)
+
+The server successfully implements the core Evidence.dev discovery functionality but encounters issues with the DuckDB database integration for querying data.
 
 ## Project Overview
 
@@ -8,172 +18,173 @@ The current Python project is an MCP (Model Context Protocol) server that expose
 
 ## Migration Goals
 
-1. Port all functionality to TypeScript
-2. Use the official MCP TypeScript SDK
-3. Maintain feature parity with the Python implementation
-4. Improve code structure and maintainability where possible
-5. Create thorough documentation
+1. Port all functionality to TypeScript ✅ (Almost complete - DuckDB integration has issues)
+2. Use the official MCP TypeScript SDK ✅ (Completed)
+3. Maintain feature parity with the Python implementation ⚠️ (Partial - Source discovery works, querying needs fixing)
+4. Improve code structure and maintainability where possible ✅ (Completed)
+5. Create thorough documentation ✅ (Completed)
 
-## Current Project Structure
+## Completed Implementation
 
-The Python implementation (located in `/python-version`) consists of:
+### Phase 1: Project Setup (COMPLETED)
 
-1. **Config Class**: Handles configuration and command line arguments
-2. **EvidenceDataDiscovery**: Discovers Evidence.dev data sources and parquet files
-3. **DuckDBDatabase**: Interface to DuckDB for querying parquet files
-4. **MCP Protocol Handlers**: Implements various MCP protocol requests
+1. ✅ Initialize TypeScript project with appropriate configuration
+   - Set up package.json with required dependencies
+   - Configure tsconfig.json for the project
+   - Set up testing framework (Vitest)
+   - Set up linting and formatting
+   
+2. ✅ Core Development Setup
+   - Create source directory structure
+   - Set up types and interfaces
+   - Create .gitignore with appropriate entries
+   - Document the project structure
 
-## TypeScript Port Structure
+### Phase 2: Core Module Implementation (COMPLETED)
 
-The TypeScript port will be structured as follows:
-
-```
-/
-├── src/
-│   ├── config.ts               # Configuration handling
-│   ├── discovery.ts            # Evidence.dev data discovery
-│   ├── database.ts             # DuckDB database interface
-│   ├── server.ts               # MCP server implementation
-│   └── index.ts                # Main entry point
-├── types/
-├── /sources/                   # Existing - Do not modify (real production data)
-├── /.evidence/                 # Existing - Do not modify (real production data)
-├── /python-version/            # Original Python implementation - for reference
-│   └── index.d.ts              # TypeScript type definitions
-├── tests/                      # Test files
-├── package.json                # Dependencies and scripts
-├── tsconfig.json               # TypeScript configuration
-└── README.md                   # Documentation
-```
-
-## Dependencies
-
-The TypeScript port will require the following dependencies:
-
-1. **Core Dependencies**:
-   - `@modelcontextprotocol/sdk`: Official MCP TypeScript SDK
-   - `duckdb`: Node.js bindings for DuckDB
-   - `node-parquet`: For working with Parquet files
-   - `zod`: For schema validation (used by MCP SDK)
-   - `commander`: For command-line argument parsing
-
-2. **Development Dependencies**:
-   - `typescript`: TypeScript compiler
-   - `ts-node`: TypeScript execution environment
-   - `vitest`: Testing framework
-   - `@types/*`: TypeScript type definitions for dependencies
-
-## Implementation Plan (TypeScript - Node.js)
-
-### Phase 1: Project Setup
-
-1. Initialize TypeScript project
-2. Add dependencies
-3. Configure TypeScript
-4. Set up testing environment
-
-### Phase 2: Core Components
-
-1. **Config Module**:
-   - Port the Config class to TypeScript
-   - Implement command-line argument parsing
-   - Handle project and data paths
-
-2. **Discovery Module**:
-   - Port EvidenceDataDiscovery to TypeScript
+1. ✅ Port Config module
+   - Implement project path validation
+   - Implement data path discovery
+   - Add command-line parsing with Commander
+   
+2. ✅ Port Discovery module
+   - Implement source discovery
+   - Implement table discovery
    - Implement manifest parsing
-   - Implement directory scanning
-   - Handle Parquet file discovery
+   - Add support for different file types
+   
+3. ✅ Port Database module (with issues)
+   - Implement DuckDB interface
+   - Handle DuckDB connection lifecycle
+   - Implement query execution and result formatting
+   - **Known Issue**: DuckDB.Database is not a constructor error
 
-3. **Database Module**:
-   - Port DuckDBDatabase to TypeScript
-   - Implement DuckDB connection handling
-   - Implement query execution
-   - Register views for discovered Parquet files
+### Phase 3: MCP Server Implementation (COMPLETED)
 
-### Phase 3: MCP Server Implementation
+1. ✅ Create MCP Server instance
+   - Set up with appropriate metadata
+   - Configure resources and tools
+   
+2. ✅ Implement Resources
+   - Source listing resource
+   - Table listing resource
+   - Table schema resource
+   
+3. ✅ Implement Tools
+   - Source listing tool
+   - Table listing tool
+   - Table schema tool
+   - Query tool (has DuckDB issues)
+   
+4. ✅ Add error handling
+   - Implement proper error response formatting
 
-1. **Server Module**:
-   - Create a new McpServer instance
-   - Implement resources handlers
-   - Implement tools handlers
-   - Set up error handling
+### Phase 4: Testing (MOSTLY COMPLETED)
 
-2. **Main Entry Point**:
-   - Implement the main function
-   - Handle command-line arguments
-   - Initialize and start the server
+1. ✅ Set up Vitest for testing
+   - Configure test environment
+   - Create test utilities
+   
+2. ✅ Create unit tests
+   - Test Config module
+   - Test Discovery module
+   - Test Database module (partial due to DuckDB issues)
+   
+3. ✅ Create integration tests
+   - Test end-to-end functionality (partial due to DuckDB issues)
 
-### Phase 4: Testing and Documentation
+### Phase 5: Finalization (PARTIALLY COMPLETED)
 
-1. **Testing**:
-   - Write unit tests for config, discovery, and database modules
-   - Write integration tests for the server
-   - Create test fixtures
+1. ✅ Documentation
+   - Add JSDoc comments to all modules
+   - Create comprehensive README
+   - Add usage examples
+   
+2. ✅ Package Configuration
+   - Set up npm package.json
+   - Configure entry points and exports
+   - Add CLI configuration
+   
+3. ✅ Build Process
+   - Create build scripts
+   - Set up npm package configuration
 
-2. **Documentation**:
-   - Document APIs
-   - Create usage examples
-   - Add installation and usage instructions
+## Remaining Work
+
+The primary outstanding issue is with the DuckDB integration. The recommended approach to complete this is:
+
+1. **DuckDB Integration Fix**:
+   - Replace current 'duckdb' package usage with '@duckdb/node-api'
+   - Update the Database module to use the async/await pattern
+   - Refactor the connection and query methods to match the newer API
+
+2. **SQL File Support**:
+   - Add proper handling for SQL file content
+   - Implement execution of SQL queries from files
+   - Add result formatting for SQL queries
+
+3. **Testing**:
+   - Add targeted tests for the database integration
+   - Verify query results against expected outputs
+
+4. **Publishing**:
+   - Complete package preparation
+   - Publish to npm
 
 ## Technical Challenges and Solutions
 
-### 1. DuckDB Integration
+### 1. DuckDB Integration (Pending Resolution)
 
-**Challenge**: The Python implementation uses Python's DuckDB library, but we need to use Node.js bindings.
+**Challenge**: The DuckDB API in Node.js differs from the Python version, causing "duckdb.Database is not a constructor" errors.
 
-**Solution**: Use the `duckdb` npm package and adapt the API calls accordingly. We'll need to handle connection management and query execution differently.
+**Solution (Pending)**: 
+- Move from 'duckdb' package to '@duckdb/node-api'
+- Update API calls to follow the async/await model
+- Adapt the database interface to match the new API
 
-### 2. File System Operations
+### 2. File System Operations (Resolved)
 
 **Challenge**: File system operations in Node.js are different from Python.
 
-**Solution**: Use Node.js `fs` and `path` modules to handle file system operations. Replace Python's `pathlib` with equivalent Node.js code.
+**Solution**: Successfully implemented Node.js `fs` and `path` modules to handle file system operations, replacing Python's `pathlib`.
 
-### 3. Async Operations
+### 3. Async Operations (Resolved)
 
 **Challenge**: Node.js is inherently asynchronous, while the Python code uses a mix of sync and async operations.
 
-**Solution**: Convert appropriate operations to use async/await to maintain proper flow control and prevent blocking the event loop.
+**Solution**: Implemented appropriate async/await patterns where needed, while maintaining synchronous operations where blocking is acceptable.
 
-### 4. Error Handling
+### 4. Error Handling (Resolved)
 
 **Challenge**: Error handling patterns differ between Python and TypeScript.
 
-**Solution**: Implement appropriate TypeScript error handling patterns, using the MCP SDK's error types where applicable.
+**Solution**: Implemented TypeScript-native error handling with proper typing and propagation.
 
-### 5. Testing with Real Data
+### 5. Testing with Real Data (Resolved)
 
-**Challenge**: Using the existing `/sources` and `/.evidence` folders for testing without modifying them.
+**Challenge**: Using the existing `/sources` directory for testing without modifying it.
 
-**Solution**: Create test cases that use these directories for input data but write any outputs to temporary directories. Use vitest for testing instead of Jest.
-
-## Migration Steps
-
-1. Set up the project structure and dependencies
-2. Port the Config module
-3. Port the Discovery module
-4. Port the Database module
-5. Implement the MCP server using the TypeScript SDK
-6. Create tests
-7. Document the new implementation
-8. Create release build and package for distribution
-
-## Timeline
-
-1. **Phase 1**: Project Setup - 1 day
-2. **Phase 2**: Core Components - 3 days
-3. **Phase 3**: MCP Server Implementation - 2 days
-4. **Phase 4**: Testing and Documentation - 2 days
-
-Total estimated time: 8 days
+**Solution**: Successfully created tests that work with the actual data directories.
 
 ## Success Criteria
 
-The TypeScript port will be considered successful when:
+1. ✅ Core functionality ported from Python to TypeScript
+2. ⚠️ All tests passing (Partly achieved - non-database tests pass)
+3. ✅ Documentation complete
+4. ✅ Build process working
+5. ⚠️ Server works with Evidence.dev data sources (Partly achieved - discovery works, querying doesn't)
 
-1. All functionality from the Python implementation is available in TypeScript
-2. All tests pass
-3. Documentation is complete
-4. The server can be built and packaged for distribution
-5. The server works correctly with Evidence.dev data sources
+## Next Steps
+
+1. Focus on fixing the DuckDB integration issue
+2. Complete the SQL file support
+3. Ensure all tests pass
+4. Prepare for package publication
+
+## Lessons Learned
+
+1. **Native Module Integration**: Working with native modules like DuckDB requires careful consideration of API differences between Node.js environments.
+   
+2. **TypeScript Configuration**: ES modules with TypeScript require specific configuration to handle both development and production builds.
+   
+3. **File-Based Data Sources**: Working with SQL files rather than Parquet files introduces additional complexity in data handling.
