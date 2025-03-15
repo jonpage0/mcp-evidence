@@ -8,6 +8,59 @@ import { z } from 'zod';
 import type { Config } from './config.js';
 import { EvidenceDataDiscovery } from './discovery.js';
 import { DuckDBDatabase } from './database.js';
+// Import fs with node protocol for reading SQL files
+import * as fs from 'node:fs';
+// Import our utilities for handling BigInt serialization
+import { safeJsonStringify } from './utils.js';
+// Import SQL utilities for column name handling
+import { addExplicitColumnAliases, extractColumnNames } from './sql-utils.js';
+
+/**
+ * Renames generic column names (column0, column1, etc.) to meaningful names
+ * based on the SQL query.
+ * 
+ * @param results The original query results with generic column names
+ * @param query The SQL query that was executed
+ * @returns The results with renamed columns
+ */
+function renameColumns(results: unknown[], query: string): unknown[] {
+  // If no results, return empty array
+  if (!results || results.length === 0) {
+    return results;
+  }
+  
+  // Extract column names from the query
+  const columnNames = extractColumnNames(query);
+  if (!columnNames) {
+    return results; // Cannot extract column names, return original results
+  }
+  
+  // Check if results have generic column names (column0, column1, etc.)
+  const firstResult = results[0] as Record<string, unknown>;
+  const hasGenericColumns = Object.keys(firstResult).some(key => /^column\d+$/.test(key));
+  
+  if (!hasGenericColumns) {
+    return results; // No generic column names, return original results
+  }
+  
+  // Map generic column names to extracted column names
+  return results.map(row => {
+    const originalRow = row as Record<string, unknown>;
+    const newRow: Record<string, unknown> = {};
+    
+    Object.keys(originalRow).forEach((key, index) => {
+      // If column name is generic (column0, column1, etc.) and we have a better name, use it
+      if (/^column\d+$/.test(key) && index < columnNames.length) {
+        newRow[columnNames[index]] = originalRow[key];
+      } else {
+        // Otherwise keep the original key
+        newRow[key] = originalRow[key];
+      }
+    });
+    
+    return newRow;
+  });
+}
 
 /**
  * Create and start the Evidence.dev MCP server
@@ -37,7 +90,7 @@ export async function startServer(config: Config): Promise<void> {
       try {
         const sources = discovery.getSources();
         return {
-          content: [{ type: 'text', text: JSON.stringify(sources, null, 2) }]
+          content: [{ type: 'text', text: safeJsonStringify(sources) }]
         };
       } catch (e) {
         const error = e as Error;
@@ -59,7 +112,7 @@ export async function startServer(config: Config): Promise<void> {
       try {
         const tables = discovery.getSourceTables(source);
         return {
-          content: [{ type: 'text', text: JSON.stringify(tables, null, 2) }]
+          content: [{ type: 'text', text: safeJsonStringify(tables) }]
         };
       } catch (e) {
         const error = e as Error;
@@ -82,7 +135,7 @@ export async function startServer(config: Config): Promise<void> {
       try {
         const schema = db.describeTable(source, table);
         return {
-          content: [{ type: 'text', text: JSON.stringify(schema, null, 2) }]
+          content: [{ type: 'text', text: safeJsonStringify(schema) }]
         };
       } catch (e) {
         const error = e as Error;
@@ -102,9 +155,15 @@ export async function startServer(config: Config): Promise<void> {
     },
     async ({ query }) => {
       try {
-        const results = db.queryTable(query);
+        // Add explicit column aliases to ensure column names are preserved
+        const enhancedQuery = addExplicitColumnAliases(query);
+        
+        const results = await db.queryTable(enhancedQuery);
+        // Column names should now be properly extracted in resultToArray
+        // We don't need to rename columns here anymore as it's handled in database.ts
+        
         return {
-          content: [{ type: 'text', text: JSON.stringify(results, null, 2) }]
+          content: [{ type: 'text', text: safeJsonStringify(results) }]
         };
       } catch (e) {
         const error = e as Error;
@@ -130,11 +189,11 @@ export async function startServer(config: Config): Promise<void> {
             contents: [{
               uri: uri.href,
               mimeType: 'application/json',
-              text: JSON.stringify({
+              text: safeJsonStringify({
                 source: source.name,
                 tables,
                 path: source.path
-              }, null, 2)
+              })
             }]
           };
         } catch (e) {
@@ -165,27 +224,37 @@ export async function startServer(config: Config): Promise<void> {
         const parquetPath = discovery.getParquetPath(sourceStr, tableStr);
         
         // Query the data
-        const connection = db.connect();
         try {
+          // Get a connection
+          const connection = await db.connect();
+
+          // Create a view for the table
           const viewName = `${sourceStr}_${tableStr}`;
-          const createViewSql = `CREATE VIEW "${viewName}" AS SELECT * FROM read_parquet('${parquetPath.replace(/'/g, "''")}')`;
-          connection.prepare(createViewSql).run();
+
+          // Handle SQL files differently than parquet files
+          if (parquetPath.endsWith('.sql')) {
+            const sqlContent = fs.readFileSync(parquetPath, 'utf-8');
+            await connection.run(`CREATE VIEW "${viewName}" AS ${sqlContent}`);
+          } else {
+            await connection.run(`CREATE VIEW "${viewName}" AS SELECT * FROM read_parquet('${parquetPath.replace(/'/g, "''")}')`);
+          }
           
-          const results = connection.prepare(`SELECT * FROM "${viewName}" LIMIT 100`).all();
+          // Execute the query
+          const result = await connection.run(`SELECT * FROM "${viewName}" LIMIT 100`);
           
-          connection.close();
+          // Use our helper method to convert the result to an array
+          const resultArray = db.resultToArray(result, `SELECT * FROM "${viewName}" LIMIT 100`);
           
           return {
             contents: [{
               uri: uri.href,
               mimeType: 'application/json',
-              text: JSON.stringify(results, null, 2)
+              text: safeJsonStringify(resultArray)
             }]
           };
         } catch (e) {
-          if (connection) {
-            connection.close();
-          }
+          // Log error details before throwing
+          console.error(`Error querying table ${sourceStr}.${tableStr}:`, e);
           throw e;
         }
       } catch (e) {
@@ -209,16 +278,21 @@ export async function startServer(config: Config): Promise<void> {
       try {
         // URL decode the query
         const queryStr = Array.isArray(query) ? query[0] : query;
-        const decodedQuery = decodeURIComponent(queryStr);
+        let decodedQuery = decodeURIComponent(queryStr);
+        
+        // Add explicit column aliases to ensure column names are preserved
+        decodedQuery = addExplicitColumnAliases(decodedQuery);
         
         // Execute the query
-        const results = db.queryTable(decodedQuery);
+        const results = await db.queryTable(decodedQuery);
+        // Column names should now be properly extracted in resultToArray
+        // We don't need to rename columns here anymore as it's handled in database.ts
         
         return {
           contents: [{
             uri: uri.href,
             mimeType: 'application/json',
-            text: JSON.stringify(results, null, 2)
+            text: safeJsonStringify(results)
           }]
         };
       } catch (e) {
