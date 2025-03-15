@@ -1,0 +1,1 @@
+export { default as component } from "../../../../src/pages/linked-cards/+page.md";

@@ -1,0 +1,21 @@
+SELECT
+    id,
+    created_at,
+    updated_at,
+    first_name,
+    last_name,
+    full_name,
+    username,
+    primary_email_address,
+    primary_phone_number,
+    primary_address_id,
+    last_sign_in_at,
+    has_image,
+    image_url,
+    staff_member,
+    cio_id,
+    stripe_customer_id,
+    public_metadata,
+    private_metadata,
+    unsafe_metadata
+FROM users;

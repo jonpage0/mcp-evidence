@@ -1,0 +1,12 @@
+# This file was automatically generated
+name: studentescape_neon
+type: postgres
+options:
+  database: airbyte
+  host: ep-broad-boat-25274869.us-east-1.aws.neon.tech
+  port: 5432
+  schema: studentescape
+  ssl:
+    rejectUnauthorized: true
+    sslmode: require
+  _ssl: true

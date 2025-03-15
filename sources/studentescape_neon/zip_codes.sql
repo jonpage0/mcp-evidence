@@ -1,0 +1,1 @@
+SELECT * FROM studentescape.zip_codes;

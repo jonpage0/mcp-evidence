@@ -1,0 +1,1 @@
+SELECT * FROM maniac.area_code_cities;

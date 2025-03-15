@@ -1,0 +1,1 @@
+SELECT * FROM studentescape.payment_intents;

@@ -1,0 +1,189 @@
+{
+  "mcpServers": {
+    "memory": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@izumisy/mcp-duckdb-memory-server",
+        "--config",
+        "{\"memoryFilePath\":\"/Users/jonpage/Code/mcp/duckdb-memory/memory.data\"}"
+      ],
+      "alwaysAllow": [
+        "create_entities",
+        "create_relations",
+        "add_observations",
+        "delete_entities",
+        "delete_observations",
+        "delete_relations",
+        "search_nodes",
+        "open_nodes"
+      ],
+      "autoApprove": [
+        "create_entities",
+        "create_relations",
+        "add_observations",
+        "delete_entities",
+        "delete_observations",
+        "delete_relations",
+        "search_nodes",
+        "open_nodes"
+      ]
+    },
+    "brave": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-brave-search"
+      ],
+      "env": {
+        "BRAVE_API_KEY": "BSA7jHYTftRWwvSM3kfg02tnjV0dhNh"
+      },
+      "alwaysAllow": [
+        "brave_web_search",
+        "brave_local_search"
+      ],
+      "autoApprove": [
+        "brave_web_search",
+        "fire_crawl_scrape"
+      ],
+      "disabled": false
+    },
+    "perplexity": {
+      "command": "node",
+      "args": [
+        "/Users/jonpage/Code/mcp/perplexity/build/index.js"
+      ],
+      "env": {
+        "PERPLEXITY_API_KEY": "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"
+      },
+      "disabled": false,
+      "autoApprove": [
+        "search",
+        "get_documentation",
+        "find_apis",
+        "check_deprecated_code",
+        "chat_perplexity"
+      ],
+      "alwaysAllow": [
+        "search",
+        "get_documentation",
+        "find_apis",
+        "check_deprecated_code",
+        "chat_perplexity"
+      ]
+    },
+    "firecrawl": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-server-firecrawl"
+      ],
+      "env": {
+        "FIRE_CRAWL_API_KEY": "fc-1961028aa7534805bf703eb93f06bd96"
+      },
+      "alwaysAllow": [
+        "fire_crawl_scrape",
+        "fire_crawl_map",
+        "fire_crawl_crawl",
+        "fire_crawl_batch_scrape",
+        "fire_crawl_check_batch_status",
+        "fire_crawl_check_crawl_status",
+        "fire_crawl_search"
+      ],
+      "autoApprove": [
+        "fire_crawl_scrape",
+        "fire_crawl_map",
+        "fire_crawl_crawl",
+        "fire_crawl_batch_scrape",
+        "fire_crawl_check_batch_status",
+        "fire_crawl_check_crawl_status",
+        "fire_crawl_search"
+      ]
+    },
+    "youtube": {
+      "command": "npx",
+      "args": [
+        "@anaisbetts/mcp-youtube"
+      ],
+      "alwaysAllow": [
+        "download_youtube_url"
+      ],
+      "disabled": false,
+      "autoApprove": [
+        "download_youtube_url"
+      ]
+    },
+    "time": {
+      "command": "npx",
+      "args": [
+        "@dandeliongold/mcp-time"
+      ],
+      "alwaysAllow": [
+        "getCurrentTime",
+        "getTimeDifference"
+      ],
+      "autoApprove": [
+        "getCurrentTime",
+        "getTimeDifference"
+      ]
+    },
+    "postgres-maniac-airbyte": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "postgresql://maniac:wzMdDOmj9V1Q@ep-broad-boat-25274869.us-east-1.aws.neon.tech/airbyte?sslmode=require"
+      ],
+      "disabled": false,
+      "autoApprove": [
+        "query"
+      ],
+      "alwaysAllow": [
+        "query"
+      ]
+    },
+    "postgres-maniac-2025": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "postgresql://maniac:wzMdDOmj9V1Q@ep-wispy-frog-24363798.us-east-1.aws.neon.tech/maniac?sslmode=require"
+      ],
+      "disabled": false,
+      "autoApprove": [
+        "query"
+      ],
+      "alwaysAllow": [
+        "query"
+      ]
+    },
+    "postgres-maniac-2024": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "postgresql://maniac:wzMdDOmj9V1Q@ep-wandering-star-a4c4vi4j.us-east-1.aws.neon.tech/maniac?sslmode=require"
+      ],
+      "disabled": false,
+      "autoApprove": [
+        "query"
+      ],
+      "alwaysAllow": [
+        "query"
+      ]
+    },
+    "evidence": {
+      "command": "/Users/jonpage/Code/mcp/mcp-evidence/venv/bin/python",
+      "args": [
+        "/Users/jonpage/Code/mcp/mcp-evidence/mcp_server_evidence.py",
+        "--project-path",
+        "/Users/jonpage/Code/mcp/mcp-evidence",
+        "--data-path",
+        "/Users/jonpage/Code/mcp/mcp-evidence/sources"
+      ],
+      "env": {},
+      "disabled": false,
+      "alwaysAllow": []
+    }
+  }
+}

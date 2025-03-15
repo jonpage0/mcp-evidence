@@ -1,0 +1,13 @@
+# This file was automatically generated
+type: postgres
+name: maniac_neon_2024
+options:
+  database: maniac
+  host: ep-wandering-star-a4c4vi4j.us-east-1.aws.neon.tech
+  port: 5432
+  ssl:
+    rejectUnauthorized: true
+  _ssl: true
+# Advanced Options, you probably don't want to change this
+buildOptions:
+  batchSize: 1000000

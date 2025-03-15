@@ -1,0 +1,19 @@
+SELECT 
+    id,
+    created_at,
+    updated_at,
+    status,
+    stripe_checkout_session,
+    stripe_checkout_session_id,
+    stripe_subscription,
+    stripe_schedule,
+    stripe_product_id,
+    clerk_user_id,
+    card_id,
+    trip_id,
+    session_id,
+    issued_cards_id,
+    issued_trips_id,
+    issued_tickets_id,
+    referral_code
+FROM orders;

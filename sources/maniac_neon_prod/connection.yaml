@@ -1,0 +1,13 @@
+# This file was automatically generated
+name: maniac_neon_prod
+type: postgres
+options:
+  database: maniac
+  host: ep-broad-boat-25274869.us-east-1.aws.neon.tech
+  options: ""
+  port: 5432
+  schema: public
+  ssl:
+    rejectUnauthorized: true
+    sslmode: require
+  _ssl: true

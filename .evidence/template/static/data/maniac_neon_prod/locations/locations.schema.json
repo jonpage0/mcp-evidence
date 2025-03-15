@@ -1,0 +1,1 @@
+[{"name":"created_at","evidenceType":"date","typeFidelity":"precise"},{"name":"updated_at","evidenceType":"date","typeFidelity":"precise"},{"name":"id","evidenceType":"string","typeFidelity":"precise"},{"name":"slug","evidenceType":"string","typeFidelity":"precise"},{"name":"name","evidenceType":"string","typeFidelity":"precise"}]
