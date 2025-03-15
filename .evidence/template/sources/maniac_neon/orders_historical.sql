@@ -1,7 +1,7 @@
 SELECT 
   cs.*,
   TRUNC((cs.amount_total / 100.00), 2) AS amount_total,
-  TRUNC((cs."2025_stripe_total" / 100.00), 2) AS "2025_stripe_total"
+  TRUNC((cs."final_stripe_total" / 100.00), 2) AS "final_stripe_total"
 FROM maniac.checkout_sessions_expanded cs
   LEFT JOIN maniac.refunds r ON cs.payment_intent = r.payment_intent
   LEFT JOIN maniac.disputes d ON cs.payment_intent = d.payment_intent
@@ -27,6 +27,6 @@ WHERE cs.status = 'complete'
   )
   -- Filter for specific order types
   AND (
-    cs.m_type IN ('card', 'ticket', 'card-upgrade')
-    OR (cs.m_type IS NULL AND cs.m_tier IN ('maniac-vip-card', 'maniac-card'))
+    cs."final_type" IN ('card', 'ticket', 'card-upgrade')
+    OR (cs."final_type" IS NULL AND cs."final_tier" IN ('maniac-vip-card', 'maniac-card'))
   )

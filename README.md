@@ -42,6 +42,12 @@ mcp-evidence --project-path /path/to/evidence/project --data-path /path/to/data
 
 # With debug logging
 mcp-evidence --project-path /path/to/evidence/project --debug
+
+# For users who installed locally in a project
+npx evidence-mcp --project-path ./my-evidence-project
+
+# For users who installed globally
+evidence-mcp --project-path ./my-evidence-project
 ```
 
 ### Programmatic Usage

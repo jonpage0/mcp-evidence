@@ -80,7 +80,17 @@ export async function startServer(config) {
         catch (e) {
             const error = e;
             return {
-                content: [{ type: 'text', text: `Error: ${error.message}` }],
+                content: [{
+                        type: 'text',
+                        text: `Error: ${error.message}
+            
+USAGE: Please provide a valid SQL query like:
+SELECT * FROM source_table WHERE conditions LIMIT 10
+
+IMPORTANT: Do NOT use "memory." prefix with Evidence tables - access Evidence data sources directly.
+
+Note: Use source_table format with underscore, NOT source.table with dot. While Evidence.dev itself uses dot notation (source.table), this MCP server requires underscore notation (source_table).`
+                    }],
                 isError: true
             };
         }
@@ -98,7 +108,16 @@ export async function startServer(config) {
         catch (e) {
             const error = e;
             return {
-                content: [{ type: 'text', text: `Error: ${error.message}` }],
+                content: [{
+                        type: 'text',
+                        text: `Error: ${error.message}
+            
+USAGE: Please provide a valid SQL query like:
+SELECT * FROM source_table WHERE conditions LIMIT 10
+
+CONTEXT MATTERS: When using this MCP server/tool, use underscore notation (source_table). When writing actual Evidence.dev code files, use dot notation (source.table).
+IMPORTANT: Do NOT use "memory." prefix with Evidence tables - access Evidence data sources directly.`
+                    }],
                 isError: true
             };
         }
@@ -124,8 +143,8 @@ export async function startServer(config) {
     });
     // Execute SQL query
     server.tool('evidence-query', {
-        query: z.string().describe('SQL query to execute'),
-        maxResults: z.number().optional().describe('Maximum number of rows to return (default: 10)')
+        query: z.string().describe('SQL query to execute. Example: "SELECT * FROM maniac_neon_orders LIMIT 5". IMPORTANT CONTEXT DISTINCTION: When using this MCP server/tool, use underscore notation (source_table). When writing actual Evidence.dev code files, use dot notation (source.table). Also, do NOT use "memory." prefix with Evidence tables - access Evidence data sources directly.'),
+        maxResults: z.number().optional().describe('Maximum number of rows to return. Results are limited to 10 rows by default, use this parameter to request more rows.')
     }, async ({ query, maxResults }) => {
         try {
             // Add explicit column aliases to ensure column names are preserved
@@ -145,7 +164,16 @@ export async function startServer(config) {
                         type: 'text',
                         text: safeJsonStringify({
                             results: limitedResults,
-                            meta: resultMeta
+                            meta: {
+                                ...resultMeta,
+                                important_note: "CONTEXT MATTERS: When using this MCP server/tool, use underscore notation (source_table). When writing actual Evidence.dev code files, use dot notation (source.table).",
+                                warning: "Do NOT use 'memory.' prefix with Evidence tables. Access Evidence data sources directly.",
+                                correct_usage: "Use: SELECT * FROM source_table LIMIT 10",
+                                result_limits: `Results are limited to ${config.defaultResultLimit || 10} rows by default. Use the maxResults parameter to request more rows.`,
+                                query_examples: {
+                                    simple: "SELECT * FROM source_table LIMIT 10"
+                                }
+                            }
                         })
                     }]
             };
@@ -153,7 +181,180 @@ export async function startServer(config) {
         catch (e) {
             const error = e;
             return {
-                content: [{ type: 'text', text: `Error: ${error.message}` }],
+                content: [{
+                        type: 'text',
+                        text: `Error: ${error.message}
+            
+USAGE: Please provide a valid SQL query like:
+SELECT * FROM source_table WHERE conditions LIMIT 10
+
+Results are limited to ${config.defaultResultLimit || 10} rows by default. Use the maxResults parameter to request more rows.
+CONTEXT MATTERS: When using this MCP server/tool, use underscore notation (source_table). When writing actual Evidence.dev code files, use dot notation (source.table).`
+                    }],
+                isError: true
+            };
+        }
+    });
+    // Documentation tool
+    server.tool('evidence-documentation', {}, async () => {
+        try {
+            // Get a source and table for examples if available
+            const sources = discovery.getSources();
+            let exampleSource = 'maniac_neon';
+            let exampleTable = 'orders';
+            if (sources.length > 0) {
+                exampleSource = sources[0].name;
+                const tables = discovery.getSourceTables(exampleSource);
+                if (tables.length > 0) {
+                    exampleTable = tables[0];
+                }
+            }
+            return {
+                content: [{
+                        type: 'text',
+                        text: `# Evidence.dev MCP Query Guide
+
+## IMPORTANT NOTE ABOUT QUERY SYNTAX
+Two different notations are used depending on context:
+
+1. When using this MCP server/tool → Use underscore notation: \`source_table\` 
+2. When writing actual Evidence.dev code files → Use dot notation: \`source.table\` 
+
+## WARNING: Do NOT use "memory." prefix with Evidence tables - access Evidence data sources directly.
+
+## RESULT LIMITS
+Results are limited to ${config.defaultResultLimit || 10} rows by default. Use the "maxResults" parameter to request more rows.
+
+## Available Tools
+
+### evidence-query
+Execute SQL queries against available data sources.
+
+\`\`\`json
+{
+  "method": "evidence-query",
+  "params": {
+    "query": "SELECT * FROM ${exampleSource}_${exampleTable} LIMIT 5",
+    "maxResults": 10
+  }
+}
+\`\`\`
+
+### evidence-list-sources
+List all available data sources.
+
+\`\`\`json
+{
+  "method": "evidence-list-sources",
+  "params": {}
+}
+\`\`\`
+
+### evidence-list-tables
+List tables in a specific source.
+
+\`\`\`json
+{
+  "method": "evidence-list-tables",
+  "params": {
+    "source": "${exampleSource}"
+  }
+}
+\`\`\`
+
+### evidence-describe-table
+Get schema information for a specific table.
+
+\`\`\`json
+{
+  "method": "evidence-describe-table",
+  "params": {
+    "source": "${exampleSource}",
+    "table": "${exampleTable}"
+  }
+}
+\`\`\`
+
+## Resource URIs
+
+### Table data: evidence://query/{source}/{table}
+Example: \`evidence://query/${exampleSource}/${exampleTable}\`
+
+NOTE: This is different from accessing memory data. Do NOT use memory.table_name for Evidence data.
+
+### SQL Query: evidence://sql/{url_encoded_query}
+Example: \`evidence://sql/SELECT%20*%20FROM%20${exampleSource}_${exampleTable}%20LIMIT%205\`
+
+## Tips for Constructing Queries
+1. CONTEXT MATTERS:
+   - When using this MCP server/tool → Use underscore notation: \`source_table\`
+   - When writing actual Evidence.dev code files → Use dot notation: \`source.table\`
+2. Result Limits:
+   - Results are limited to ${config.defaultResultLimit || 10} rows by default
+   - Use the "maxResults" parameter to request more rows if needed
+3. Do NOT prefix Evidence tables with "memory." - access them directly`
+                    }]
+            };
+        }
+        catch (e) {
+            const error = e;
+            return {
+                content: [{
+                        type: 'text',
+                        text: `Error generating documentation: ${error.message}`
+                    }],
+                isError: true
+            };
+        }
+    });
+    // Schema discovery tool - helps LLMs understand structure and correct query format
+    server.tool('evidence-discover-schema', {}, async () => {
+        try {
+            const sources = discovery.getSources();
+            const schema = {};
+            const queryExamples = [];
+            for (const source of sources) {
+                schema[source.name] = {};
+                const tables = discovery.getSourceTables(source.name);
+                for (const table of tables) {
+                    try {
+                        // Store table schema
+                        schema[source.name][table] = db.describeTable(source.name, table);
+                        // Add example query for this table
+                        queryExamples.push({
+                            description: `Query ${source.name}_${table}`,
+                            query: `SELECT * FROM ${source.name}_${table} LIMIT 5`
+                        });
+                        // If we have enough examples, stop adding more
+                        if (queryExamples.length >= 5)
+                            break;
+                    }
+                    catch (e) {
+                        schema[source.name][table] = { error: `Could not describe table: ${e.message}` };
+                    }
+                }
+                // If we have enough examples, stop processing sources
+                if (queryExamples.length >= 5)
+                    break;
+            }
+            return {
+                content: [{
+                        type: 'text',
+                        text: safeJsonStringify({
+                            description: "Complete database schema with example queries for MCP use",
+                            warning: "Do NOT use 'memory.' prefix with Evidence tables. Access Evidence data sources directly.",
+                            correct_usage: "Use: SELECT * FROM source_table",
+                            important_note: "CONTEXT MATTERS: When using this MCP server/tool, use underscore notation (source_table). When writing actual Evidence.dev code files, use dot notation (source.table).",
+                            schema,
+                            query_examples: queryExamples
+                        })
+                    }]
+            };
+        }
+        catch (e) {
+            const error = e;
+            return {
+                content: [{ type: 'text', text: `Error discovering schema: ${error.message}` }],
                 isError: true
             };
         }
@@ -228,7 +429,17 @@ export async function startServer(config) {
                             mimeType: 'application/json',
                             text: safeJsonStringify({
                                 results: limitedResults,
-                                meta: resultMeta
+                                meta: {
+                                    ...resultMeta,
+                                    important_note: "CONTEXT MATTERS: When using this MCP server/tool, use underscore notation (source_table). When writing actual Evidence.dev code files, use dot notation (source.table).",
+                                    warning: "Do NOT use 'memory.' prefix with Evidence tables. Access Evidence data sources directly.",
+                                    correct_usage: "Use: SELECT * FROM source_table",
+                                    query_examples: {
+                                        access_directly: `SELECT * FROM ${sourceStr}_${tableStr} LIMIT 10`,
+                                        evidence_code_file_format: `// This is for Evidence.dev code files ONLY, not for MCP: ${sourceStr}.${tableStr}`,
+                                        join_example: `SELECT t1.*, t2.column_name FROM ${sourceStr}_${tableStr} t1 JOIN another_source_another_table t2 ON t1.id = t2.id LIMIT 10`
+                                    }
+                                }
                             })
                         }]
                 };
@@ -245,7 +456,15 @@ export async function startServer(config) {
                 contents: [{
                         uri: uri.href,
                         mimeType: 'text/plain',
-                        text: `Error querying table: ${error.message}`
+                        text: `Error querying table: ${error.message}
+             
+USAGE: This resource URI accesses table data directly. Format: 
+evidence://query/{source}/{table} 
+ 
+CONTEXT MATTERS: When using this MCP server/tool → underscore notation. When writing Evidence.dev code files → dot notation.
+IMPORTANT: Do NOT use "memory." prefix with Evidence tables - access Evidence data sources directly.
+Example: evidence://query/source_name/table_name
+When using SQL, remember to use source_table format with underscore, NOT source.table with dot.`
                     }]
             };
         }
@@ -285,7 +504,15 @@ export async function startServer(config) {
                 contents: [{
                         uri: uri.href,
                         mimeType: 'text/plain',
-                        text: `Error executing SQL query: ${error.message}`
+                        text: `Error executing SQL query: ${error.message}
+            
+USAGE: Please provide a valid SQL query in the format:
+SELECT * FROM source_table WHERE conditions LIMIT 10
+
+IMPORTANT: Do NOT use "memory." prefix with Evidence tables - access Evidence data sources directly.
+
+Note: Use source_table format with underscore, NOT source.table with dot. 
+While Evidence.dev itself uses dot notation (source.table), this MCP server requires underscore notation (source_table).`
                     }]
             };
         }

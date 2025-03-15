@@ -1,0 +1,5 @@
+Debug logging enabled
+Starting Evidence.dev MCP Server
+Discovered 4 sources from manifest
+Starting MCP server on stdio transport
+MCP server running. Press Ctrl+C to exit.

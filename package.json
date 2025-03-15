@@ -1,12 +1,12 @@
 {
-  "name": "mcp-evidence",
+  "name": "evidence-mcp",
   "version": "0.1.0",
   "description": "Evidence.dev MCP Server - TypeScript Implementation",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",
   "bin": {
-    "mcp-evidence": "dist/cli.js"
+    "evidence-mcp": "./dist/cli.js"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json && chmod +x dist/cli.js",

@@ -4,7 +4,6 @@ import { sveltekit } from "@sveltejs/kit/vite"
 	import { isDebug } from '@evidence-dev/sdk/utils';
 	import { log } from "@evidence-dev/sdk/logger";
 	import { evidenceThemes } from '@evidence-dev/tailwind/vite-plugin';
-	import tailwindcss from '@tailwindcss/vite';
 
 
 	process.removeAllListeners('warning');
@@ -24,7 +23,7 @@ import { sveltekit } from "@sveltejs/kit/vite"
     /** @type {import('vite').UserConfig} */
      const config = 
     {
-        plugins: [tailwindcss(), sveltekit(), configVirtual(), queryDirectoryHmr, sourceQueryHmr(), evidenceThemes()],
+        plugins: [sveltekit(), configVirtual(), queryDirectoryHmr, sourceQueryHmr(), evidenceThemes()],
         optimizeDeps: {
             include: ['echarts-stat', 'echarts', 'blueimp-md5', 'nanoid', '@uwdata/mosaic-sql',
 				// We need these to prevent HMR from doing a full page reload

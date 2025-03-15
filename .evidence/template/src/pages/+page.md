@@ -36,28 +36,31 @@ tickets_totals AS (
 cards_totals AS (
     SELECT
     /* Revenue breakdown */
-    SUM("2025_stripe_total") AS cards_gross_revenue,
-    SUM(CASE WHEN "2025_type" = 'card' THEN "2025_stripe_total" ELSE 0 END) AS cards_sales_revenue,
-    SUM(CASE WHEN "2025_type" = 'card-upgrade' THEN "2025_stripe_total" ELSE 0 END) AS cards_upgrade_revenue,
+    SUM("final_stripe_total") AS cards_gross_revenue,
+    SUM(CASE WHEN "final_type" = 'card' THEN "final_stripe_total" ELSE 0 END) AS cards_sales_revenue,
+    SUM(CASE WHEN "final_type" = 'card-upgrade' THEN "final_stripe_total" ELSE 0 END) AS cards_upgrade_revenue,
 
     /* Tax */
-    SUM("2025_tax") AS cards_tax_total,
-
-    /* Individual fees */
-    SUM("2025_fee_processing") AS cards_fees_processing,
-    SUM("2025_fee_booking") AS cards_fees_booking,
-    SUM("2025_fee_payment_plan") AS cards_fees_subscription,
-
-    /* Application fee */
-    SUM("2025_fee_application") AS cards_fees_application,
+    SUM("final_tax") AS cards_tax_total,
 
     /* Total fees */
-    SUM("2025_total_fees") AS cards_fees_total,
+    SUM("final_total_fees") AS cards_fees_total,
+
+    /* Individual fees */
+    SUM("final_fee_processing") AS cards_fees_processing,
+    SUM("final_fee_booking") AS cards_fees_booking,
+    SUM("final_fee_payment_plan") AS cards_fees_subscription,
+
+    /* Application fee */
+    SUM("final_fee_application") AS cards_fees_application,
+
+    /* Total fees */
+    SUM("final_total_fees") AS cards_fees_total,
 
     /* Count metrics */
-    COUNT(CASE WHEN "2025_type" = 'card' THEN 1 ELSE NULL END) AS cards_count,
-    COUNT(CASE WHEN "2025_type" = 'card-upgrade' THEN 1 ELSE NULL END) AS cards_upgrades_count,
-    COUNT(CASE WHEN "2025_payment_method" = 'installment-plan' THEN 1 ELSE NULL END) AS cards_subscriptions_count
+    COUNT(CASE WHEN "final_type" = 'card' THEN 1 ELSE NULL END) AS cards_count,
+    COUNT(CASE WHEN "final_type" = 'card-upgrade' THEN 1 ELSE NULL END) AS cards_upgrades_count,
+    COUNT(CASE WHEN "final_payment_method" = 'installment-plan' THEN 1 ELSE NULL END) AS cards_subscriptions_count
     
     FROM maniac_neon.orders
 ),
@@ -86,104 +89,55 @@ cards_tickets_combined AS (
 SELECT * FROM tickets_totals, cards_totals, cards_tickets_combined
 ```
 
-
-```sql cards_tickets_totals_historical
+```sql cards_tickets_totals_delta
 WITH 
--- 2024 data from historical sources
-tickets_totals_2024 AS (
-    SELECT
-    /* Total tickets sold across all orders */
-    SUM(total_tickets) AS tickets_count_2024,
+current_period AS (
+  SELECT
+    (SELECT SUM(order_total) FROM maniac_neon.tickets) +
+    (SELECT SUM("final_stripe_total") FROM maniac_neon.orders) AS combined_total_gross_revenue,
     
-    /* Distinct count of orders */
-    COUNT(DISTINCT order_id) AS tickets_orders_count_2024,
+    (SELECT SUM(booking_fees + transaction_charge) FROM maniac_neon.tickets) +
+    (SELECT SUM("final_total_fees") + SUM("final_fee_payment_plan") FROM maniac_neon.orders) AS combined_total_fees,
     
-    /* Summations from the order-level columns */
-    SUM(order_total) AS tickets_gross_revenue_2024,
-    SUM(tickets_subtotal) AS tickets_subtotal_revenue_2024,
-    
-    /* Distinguish fees from tax */
-    SUM(booking_fees + transaction_charge) AS tickets_fees_total_2024,
-    SUM(booking_fees) AS tickets_fees_booking_2024,
-    SUM(transaction_charge) AS tickets_fees_transaction_charge_2024,
-    SUM(line_tax) AS tickets_tax_total_2024
-    
-    FROM maniac_neon.tickets_2024
-),
-cards_totals_2024 AS (
-    SELECT
-    /* Revenue breakdown */
-    SUM("2025_stripe_total") AS cards_gross_revenue_2024,
-    SUM(CASE WHEN "2025_type" = 'card' THEN "2025_stripe_total" ELSE 0 END) AS cards_sales_revenue_2024,
-    SUM(CASE WHEN "2025_type" = 'card-upgrade' THEN "2025_stripe_total" ELSE 0 END) AS cards_upgrade_revenue_2024,
-
-    /* Tax */
-    SUM("2025_tax") AS cards_tax_total_2024,
-
-    /* Total fees */
-    SUM("2025_total_fees") AS cards_fees_total_2024,
-
-    /* Count metrics */
-    COUNT(CASE WHEN "2025_type" = 'card' THEN 1 ELSE NULL END) AS cards_count_2024,
-    COUNT(CASE WHEN "2025_type" = 'card-upgrade' THEN 1 ELSE NULL END) AS cards_upgrades_count_2024,
-    COUNT(CASE WHEN "2025_payment_method" = 'installment-plan' THEN 1 ELSE NULL END) AS cards_subscriptions_count_2024
-    
-    FROM maniac_neon.orders_historical
-    WHERE 
-    /* Apply date alignment to compare same weekday 2024 to 2025 */
-    CAST(TO_TIMESTAMP(created) AS TIMESTAMP) + INTERVAL '364 days' - INTERVAL '4 hours' <= CURRENT_TIMESTAMP
-),
-cards_tickets_combined_2024 AS (
-    SELECT
-    /* Combined revenue metrics */
-    (SELECT tickets_gross_revenue_2024 FROM tickets_totals_2024) + 
-      (SELECT cards_gross_revenue_2024 FROM cards_totals_2024) AS combined_total_gross_revenue_2024,
-    
-    /* Combined fee metrics */
-    (SELECT tickets_fees_total_2024 FROM tickets_totals_2024) + 
-      (SELECT cards_fees_total_2024 FROM cards_totals_2024) AS combined_total_fees_2024,
-    
-    /* Combined tax metrics */
-    (SELECT tickets_tax_total_2024 FROM tickets_totals_2024) + 
-      (SELECT cards_tax_total_2024 FROM cards_totals_2024) AS combined_total_tax_2024
+    (SELECT SUM(line_tax) FROM maniac_neon.tickets) +
+    (SELECT SUM("final_tax") FROM maniac_neon.orders) AS combined_total_tax
 ),
 
--- Get 2025 data from the cards_tickets_totals query
-current_totals AS (
-    SELECT * FROM ${cards_tickets_totals}
+previous_period AS (
+  SELECT
+    (SELECT SUM(order_total) FROM maniac_neon.tickets_2024 
+     WHERE created_at <= (EXTRACT(EPOCH FROM (CAST(CURRENT_TIMESTAMP AS TIMESTAMP) - INTERVAL '4' HOUR - INTERVAL '364' DAY)) * 1000)) +
+    (SELECT SUM(amount_total) FROM maniac_neon.orders_historical 
+     WHERE created <= (EXTRACT(EPOCH FROM (CAST(CURRENT_TIMESTAMP AS TIMESTAMP) - INTERVAL '4' HOUR - INTERVAL '364' DAY)))) AS prev_combined_total_gross_revenue,
+    
+    (SELECT SUM(booking_fees + transaction_charge) FROM maniac_neon.tickets_2024
+     WHERE created_at <= (EXTRACT(EPOCH FROM (CAST(CURRENT_TIMESTAMP AS TIMESTAMP) - INTERVAL '4' HOUR - INTERVAL '364' DAY)) * 1000)) +
+    (SELECT SUM(m_total_fees) + SUM(COALESCE(m_fee_payment_plan, 0)) + SUM(COALESCE(sub_fee_application, 0)) FROM maniac_neon.orders_historical
+     WHERE created <= (EXTRACT(EPOCH FROM (CAST(CURRENT_TIMESTAMP AS TIMESTAMP) - INTERVAL '4' HOUR - INTERVAL '364' DAY)))) AS prev_combined_total_fees,
+    
+    (SELECT SUM(line_tax) FROM maniac_neon.tickets_2024
+     WHERE created_at <= (EXTRACT(EPOCH FROM (CAST(CURRENT_TIMESTAMP AS TIMESTAMP) - INTERVAL '4' HOUR - INTERVAL '364' DAY)) * 1000)) +
+    (SELECT SUM(m_tax) FROM maniac_neon.orders_historical
+     WHERE created <= (EXTRACT(EPOCH FROM (CAST(CURRENT_TIMESTAMP AS TIMESTAMP) - INTERVAL '4' HOUR - INTERVAL '364' DAY)))) AS prev_combined_total_tax
 )
 
--- Calculate absolute differences and percentages
-SELECT
-    -- 2024 totals (for reference)
-    (SELECT combined_total_gross_revenue_2024 FROM cards_tickets_combined_2024) AS gross_revenue_2024,
-    (SELECT combined_total_fees_2024 FROM cards_tickets_combined_2024) AS fees_total_2024,
-    (SELECT combined_total_tax_2024 FROM cards_tickets_combined_2024) AS tax_total_2024,
-    
-    -- Absolute changes for Delta components
-    (SELECT combined_total_gross_revenue FROM current_totals) - 
-    (SELECT combined_total_gross_revenue_2024 FROM cards_tickets_combined_2024) AS gross_revenue_abs_change,
-    
-    (SELECT combined_total_fees FROM current_totals) - 
-    (SELECT combined_total_fees_2024 FROM cards_tickets_combined_2024) AS fees_abs_change,
-    
-    (SELECT combined_total_tax FROM current_totals) - 
-    (SELECT combined_total_tax_2024 FROM cards_tickets_combined_2024) AS tax_abs_change,
-    
-    -- Percentage changes (optional)
-    ((SELECT combined_total_gross_revenue FROM current_totals) / 
-     NULLIF((SELECT combined_total_gross_revenue_2024 FROM cards_tickets_combined_2024), 0)) - 1 
-     AS gross_revenue_pct_change,
-    
-    ((SELECT combined_total_fees FROM current_totals) / 
-     NULLIF((SELECT combined_total_fees_2024 FROM cards_tickets_combined_2024), 0)) - 1 
-     AS fees_pct_change,
-    
-    ((SELECT combined_total_tax FROM current_totals) / 
-     NULLIF((SELECT combined_total_tax_2024 FROM cards_tickets_combined_2024), 0)) - 1 
-     AS tax_pct_change
-
-FROM cards_tickets_combined_2024, current_totals
+SELECT 
+  cp.combined_total_gross_revenue,
+  pp.prev_combined_total_gross_revenue,
+  cp.combined_total_gross_revenue - pp.prev_combined_total_gross_revenue AS delta_combined_total_gross_revenue,
+  ABS(cp.combined_total_gross_revenue - pp.prev_combined_total_gross_revenue) AS delta_combined_total_gross_revenue_abs,
+  
+  cp.combined_total_fees,
+  pp.prev_combined_total_fees,
+  cp.combined_total_fees - pp.prev_combined_total_fees AS delta_combined_total_fees,
+  ABS(cp.combined_total_fees - pp.prev_combined_total_fees) AS delta_combined_total_fees_abs,
+  
+  cp.combined_total_tax,
+  pp.prev_combined_total_tax,
+  cp.combined_total_tax - pp.prev_combined_total_tax AS delta_combined_total_tax,
+  ABS(cp.combined_total_tax - pp.prev_combined_total_tax) AS delta_combined_total_tax_abs
+  
+FROM current_period cp, previous_period pp
 ```
 
 <div class="grid grid-cols-3 sm:grid-cols-3 gap-4">
@@ -195,12 +149,12 @@ FROM cards_tickets_combined_2024, current_totals
             description="All revenue from cards and tickets."
             fmt="usd"
         />
-        <Delta
-            data={cards_tickets_totals_historical}
-            column="gross_revenue_abs_change"
-            fmt="usd"
-            chip=true
-            text="vs 2024"
+        <Delta 
+            data={cards_tickets_totals_delta} 
+            column="delta_combined_total_gross_revenue"
+            value="delta_combined_total_gross_revenue_abs"
+            text="vs. same period last year" 
+            fmt="usd0" 
         />
     </div>
 
@@ -212,12 +166,12 @@ FROM cards_tickets_combined_2024, current_totals
             description="All fees from cards and tickets."
             fmt="usd"
         />
-        <Delta
-            data={cards_tickets_totals_historical}
-            column="fees_abs_change"
-            fmt="usd" 
-            chip=true
-            text="vs 2024"
+        <Delta 
+            data={cards_tickets_totals_delta} 
+            column="delta_combined_total_fees"
+            value="delta_combined_total_fees_abs"
+            text="vs. same period last year" 
+            fmt="usd0"
         />
     </div>
 
@@ -229,12 +183,12 @@ FROM cards_tickets_combined_2024, current_totals
             description="All taxes from cards and tickets."
             fmt="usd"
         />
-        <Delta
-            data={cards_tickets_totals_historical}
-            column="tax_abs_change"
-            fmt="usd"
-            chip=true
-            text="vs 2024"
+        <Delta 
+            data={cards_tickets_totals_delta} 
+            column="delta_combined_total_tax"
+            value="delta_combined_total_tax_abs"
+            text="vs. same period last year" 
+            fmt="usd0"
         />
     </div>
 </div>
@@ -319,20 +273,20 @@ Includes all card sales and upgrades. Does not include cash sale cards.
 
 ```sql card_counts
 SELECT 
-  CASE WHEN GROUPING("2025_location") = 1 THEN 'All Locations' ELSE "2025_location" END as location,
-  CASE WHEN GROUPING("2025_location_formatted") = 1 THEN 'All Locations' ELSE "2025_location_formatted" END as location_formatted,
+  CASE WHEN GROUPING("final_location") = 1 THEN 'All Locations' ELSE "final_location" END as location,
+  CASE WHEN GROUPING("final_location_formatted") = 1 THEN 'All Locations' ELSE "final_location_formatted" END as location_formatted,
   COUNT(*) as total_cards,
-  COUNT(CASE WHEN "2025_tier" = 'maniac-card' THEN 1 END) as maniac_cards,
-  COUNT(CASE WHEN "2025_tier" = 'maniac-vip-card' THEN 1 END) as maniac_vip_cards
+  COUNT(CASE WHEN "final_tier" = 'maniac-card' THEN 1 END) as maniac_cards,
+  COUNT(CASE WHEN "final_tier" = 'maniac-vip-card' THEN 1 END) as maniac_vip_cards
 FROM maniac_neon.orders
-WHERE "2025_type" IN ('card')
-  AND "2025_tier" IN ('maniac-card', 'maniac-vip-card')
+WHERE "final_type" IN ('card')
+  AND "final_tier" IN ('maniac-card', 'maniac-vip-card')
 GROUP BY GROUPING SETS (
-  ("2025_location", "2025_location_formatted"),
+  ("final_location", "final_location_formatted"),
   ()
 )
 ORDER BY 
-  GROUPING("2025_location") DESC,
+  GROUPING("final_location") DESC,
   location
 ```
 
@@ -396,21 +350,21 @@ ORDER BY
 
 ```sql card_upgrade_counts
 SELECT 
-  CASE WHEN GROUPING("2025_location") = 1 THEN 'All Locations' ELSE "2025_location" END as location,
-  CASE WHEN GROUPING("2025_location_formatted") = 1 THEN 'All Locations' ELSE "2025_location_formatted" END as location_formatted,
+  CASE WHEN GROUPING("final_location") = 1 THEN 'All Locations' ELSE "final_location" END as location,
+  CASE WHEN GROUPING("final_location_formatted") = 1 THEN 'All Locations' ELSE "final_location_formatted" END as location_formatted,
   COUNT(*) as total_cards,
-  COUNT(CASE WHEN "2025_tier" = 'maniac-card' THEN 1 END) as maniac_cards,
-  COUNT(CASE WHEN "2025_tier" = 'maniac-vip-card' THEN 1 END) as maniac_vip_cards
+  COUNT(CASE WHEN "final_tier" = 'maniac-card' THEN 1 END) as maniac_cards,
+  COUNT(CASE WHEN "final_tier" = 'maniac-vip-card' THEN 1 END) as maniac_vip_cards
 FROM maniac_neon.orders
-WHERE "2025_type" IN ('card-upgrade')
+WHERE "final_type" IN ('card-upgrade')
 GROUP BY GROUPING SETS (
-  ("2025_location", "2025_location_formatted"),
+  ("final_location", "final_location_formatted"),
   ()
 )
 HAVING 
-  GROUPING("2025_location") = 1 OR "2025_location" IS NOT NULL
+  GROUPING("final_location") = 1 OR "final_location" IS NOT NULL
 ORDER BY 
-  GROUPING("2025_location") DESC,
+  GROUPING("final_location") DESC,
   location
 ```
 
@@ -418,19 +372,19 @@ ORDER BY
 WITH categorized_upgrades AS (
   SELECT
     id,
-    "2025_type",
-    "2025_upgrade_type",
-    "2025_tier",
+    "final_type",
+    "final_upgrade_type",
+    "final_tier",
     cancel_url,
     CASE
       WHEN cancel_url LIKE '%cardUpgrade=true%' THEN 'Tier Upgrade'
-      WHEN "2025_upgrade_type" = 'fastPass' THEN 'Fast Pass'
-      WHEN "2025_upgrade_type" = 'fastPassPlus' THEN 'Fast Pass+'
-      WHEN "2025_upgrade_type" IS NOT NULL THEN 'Other'
+      WHEN "final_upgrade_type" = 'fastPass' THEN 'Fast Pass'
+      WHEN "final_upgrade_type" = 'fastPassPlus' THEN 'Fast Pass+'
+      WHEN "final_upgrade_type" IS NOT NULL THEN 'Other'
       ELSE 'Unknown'
     END AS upgrade_category
   FROM maniac_neon.orders
-  WHERE "2025_type" = 'card-upgrade'
+  WHERE "final_type" = 'card-upgrade'
 )
 SELECT
   COUNT(*) AS total_upgrades,
@@ -654,14 +608,14 @@ ORDER BY
 WITH current_day_data AS (
     SELECT COUNT(*) AS cards_sold_today
     FROM maniac_neon.orders
-    WHERE "2025_type" = 'card'
+    WHERE "final_type" = 'card'
       AND DATE_TRUNC('day', (CAST(TO_TIMESTAMP(created) AS TIMESTAMP) - INTERVAL '4 HOURS'))
           = DATE_TRUNC('day', (CAST(CURRENT_TIMESTAMP AS TIMESTAMP) - INTERVAL '4 HOURS'))
 ),
 last_year_day_data AS (
     SELECT COUNT(*) AS cards_sold_last_year_today
     FROM maniac_neon.orders_historical
-    WHERE "2025_type" = 'card'
+    WHERE "final_type" = 'card'
       AND DATE_TRUNC('day', (CAST(TO_TIMESTAMP(created) AS TIMESTAMP) - INTERVAL '4 HOURS'))
           = DATE_TRUNC('day', (CAST(CURRENT_TIMESTAMP AS TIMESTAMP) - INTERVAL '4 HOURS' - INTERVAL '364 DAYS'))
 )
@@ -677,7 +631,7 @@ CROSS JOIN last_year_day_data ly
 SELECT
     COUNT(*) AS cards_sold_last_hour
 FROM maniac_neon.orders
-WHERE "2025_type" = 'card'
+WHERE "final_type" = 'card'
   AND (CAST(TO_TIMESTAMP(created) AS TIMESTAMP) - INTERVAL '4 HOURS')
       >= (CAST(CURRENT_TIMESTAMP AS TIMESTAMP) - INTERVAL '4 HOURS' - INTERVAL '2 HOURS')
 ```
@@ -707,25 +661,25 @@ WHERE "2025_type" = 'card'
 ```sql weekly_sales_by_location
 WITH online_sales AS (
     SELECT 
-        "2025_location_formatted" as location,
-        "2025_week" as week_num,
+        "final_location_formatted" as location,
+        "final_week" as week_num,
         CASE 
-          WHEN "2025_week"::text = '0'  THEN 'Week 0'
-          WHEN "2025_week"::text = '1'  THEN 'Week 1'
-          WHEN "2025_week"::text = '2'  THEN 'Week 2'
-          WHEN "2025_week"::text = '3'  THEN 'Week 3'
-          WHEN "2025_week"::text = '4'  THEN 'Week 4'
-          WHEN "2025_week"::text = '5'  THEN 'Week 5'
-          WHEN "2025_week"::text = '6'  THEN 'Week 6'
+          WHEN "final_week"::text = '0'  THEN 'Week 0'
+          WHEN "final_week"::text = '1'  THEN 'Week 1'
+          WHEN "final_week"::text = '2'  THEN 'Week 2'
+          WHEN "final_week"::text = '3'  THEN 'Week 3'
+          WHEN "final_week"::text = '4'  THEN 'Week 4'
+          WHEN "final_week"::text = '5'  THEN 'Week 5'
+          WHEN "final_week"::text = '6'  THEN 'Week 6'
         END AS week_formatted,
-        SUM(CASE WHEN "2025_tier" = 'maniac-card' THEN 1 ELSE 0 END) AS maniac_online_count,
-        SUM(CASE WHEN "2025_tier" = 'maniac-vip-card' THEN 1 ELSE 0 END) AS maniac_vip_online_count,
+        SUM(CASE WHEN "final_tier" = 'maniac-card' THEN 1 ELSE 0 END) AS maniac_online_count,
+        SUM(CASE WHEN "final_tier" = 'maniac-vip-card' THEN 1 ELSE 0 END) AS maniac_vip_online_count,
         COUNT(*) AS online_total_count
     FROM maniac_neon.orders
-    WHERE "2025_type" = 'card'
-      AND "2025_week" IS NOT NULL
-      AND "2025_location_formatted" IS NOT NULL
-    GROUP BY "2025_location_formatted", "2025_week"
+    WHERE "final_type" = 'card'
+      AND "final_week" IS NOT NULL
+      AND "final_location_formatted" IS NOT NULL
+    GROUP BY "final_location_formatted", "final_week"
 ),
 cash_sales AS (
     SELECT 
@@ -858,8 +812,8 @@ WITH RECURSIVE date_series AS (
 daily_revenue_current AS (
     SELECT 
         ds.sale_date as sale_date,
-        COALESCE(SUM(o."2025_stripe_total"), 0) as daily_revenue,
-        COALESCE(SUM(SUM(o."2025_stripe_total")) OVER (ORDER BY ds.sale_date), 0) as revenue,
+        COALESCE(SUM(o."final_stripe_total"), 0) as daily_revenue,
+        COALESCE(SUM(SUM(o."final_stripe_total")) OVER (ORDER BY ds.sale_date), 0) as revenue,
         '2025' as year
     FROM date_series ds
     LEFT JOIN maniac_neon.orders o 
@@ -869,8 +823,8 @@ daily_revenue_current AS (
 daily_revenue_previous AS (
     SELECT 
         ds.sale_date + INTERVAL '1 years' as sale_date,
-        COALESCE(SUM(o."2025_stripe_total"), 0) as daily_revenue,
-        COALESCE(SUM(SUM(o."2025_stripe_total")) OVER (ORDER BY ds.sale_date), 0) as revenue,
+        COALESCE(SUM(o."final_stripe_total"), 0) as daily_revenue,
+        COALESCE(SUM(SUM(o."final_stripe_total")) OVER (ORDER BY ds.sale_date), 0) as revenue,
         '2024' as year
     FROM date_series ds
     LEFT JOIN maniac_neon.orders_historical o 
@@ -912,19 +866,19 @@ ORDER BY sale_date
 WITH filtered_orders AS (
     SELECT *
     FROM maniac_neon.orders
-    WHERE "2025_type" = 'card'
+    WHERE "final_type" = 'card'
 )
 SELECT 
-    CASE "2025_location_formatted"
+    CASE "final_location_formatted"
         WHEN 'Panama City Beach' THEN 'PCB'
         WHEN 'Fort Lauderdale'   THEN 'FLL'
         WHEN 'South Padre Island' THEN 'SPI'
     END AS location,
-    CASE "2025_tier"
+    CASE "final_tier"
         WHEN 'maniac-card'     THEN 'Maniac'
         WHEN 'maniac-vip-card' THEN 'VIP'
     END AS tier,
-    CASE "2025_week_formatted"
+    CASE "final_week_formatted"
         WHEN 'Week 0' THEN 'Week 0'
         WHEN 'Week 1' THEN 'Week 1'
         WHEN 'Week 2' THEN 'Week 2'
@@ -934,7 +888,7 @@ SELECT
         WHEN 'Week 6' THEN 'Week 6'
         WHEN 'Week 7' THEN 'Week 7'
     END AS week,
-    CASE "2025_upgrade_type"
+    CASE "final_upgrade_type"
         WHEN 'fastPass'     THEN 'Fast Pass'
         WHEN 'fastPassPlus' THEN 'Fast Pass+'
         ELSE 'None'
@@ -947,17 +901,17 @@ FROM filtered_orders
 WITH filtered_orders AS (
     SELECT
         id,
-        "2025_stripe_total",
-        CASE "2025_location_formatted"
+        "final_stripe_total",
+        CASE "final_location_formatted"
             WHEN 'Panama City Beach' THEN 'PCB'
             WHEN 'Fort Lauderdale'   THEN 'FLL'
             WHEN 'South Padre Island' THEN 'SPI'
         END AS location,
-        CASE "2025_tier"
+        CASE "final_tier"
             WHEN 'maniac-card'     THEN 'Maniac'
             WHEN 'maniac-vip-card' THEN 'VIP'
         END AS tier,
-        CASE "2025_week_formatted"
+        CASE "final_week_formatted"
             WHEN 'Week 0' THEN 'Week 0'
             WHEN 'Week 1' THEN 'Week 1'
             WHEN 'Week 2' THEN 'Week 2'
@@ -967,17 +921,17 @@ WITH filtered_orders AS (
             WHEN 'Week 6' THEN 'Week 6'
             WHEN 'Week 7' THEN 'Week 7'
         END AS week,
-        CASE "2025_upgrade_type"
+        CASE "final_upgrade_type"
             WHEN 'fastPass'     THEN 'Fast Pass'
             WHEN 'fastPassPlus' THEN 'Fast Pass+'
             ELSE 'None'
         END AS fp
     FROM maniac_neon.orders
-    WHERE "2025_type" = 'card'
+    WHERE "final_type" = 'card'
 )
 SELECT 
     COUNT(*) AS total_sold,
-    SUM("2025_stripe_total") AS total_revenue
+    SUM("final_stripe_total") AS total_revenue
 FROM filtered_orders
 WHERE ${inputs.selected_dimensions}
 ```
@@ -986,16 +940,16 @@ WHERE ${inputs.selected_dimensions}
 WITH dim AS (
     SELECT
         id,
-        CASE "2025_location_formatted"
+        CASE "final_location_formatted"
             WHEN 'Panama City Beach' THEN 'PCB'
             WHEN 'Fort Lauderdale'   THEN 'FLL'
             WHEN 'South Padre Island' THEN 'SPI'
         END AS location,
-        CASE "2025_tier"
+        CASE "final_tier"
             WHEN 'maniac-card'     THEN 'Maniac'
             WHEN 'maniac-vip-card' THEN 'VIP'
         END AS tier,
-        CASE "2025_week_formatted"
+        CASE "final_week_formatted"
             WHEN 'Week 0' THEN 'Week 0'
             WHEN 'Week 1' THEN 'Week 1'
             WHEN 'Week 2' THEN 'Week 2'
@@ -1005,13 +959,13 @@ WITH dim AS (
             WHEN 'Week 6' THEN 'Week 6'
             WHEN 'Week 7' THEN 'Week 7'
         END AS week,
-        CASE "2025_upgrade_type"
+        CASE "final_upgrade_type"
             WHEN 'fastPass'     THEN 'Fast Pass'
             WHEN 'fastPassPlus' THEN 'Fast Pass+'
             ELSE 'None'
         END AS fp
     FROM maniac_neon.orders
-    WHERE "2025_type" = 'card'
+    WHERE "final_type" = 'card'
 )
 SELECT
     DATE_TRUNC('day', (CAST(TO_TIMESTAMP(o.created) AS TIMESTAMP) - INTERVAL '4 HOURS')) AS day,
@@ -1074,23 +1028,23 @@ ORDER BY 1
 ```sql weekly_sales
 WITH week_dates AS (
     SELECT 
-        "2025_week",
+        "final_week",
         CASE 
-          WHEN "2025_week"::text = '0'  THEN 'Week 0'
-          WHEN "2025_week"::text = '1'  THEN 'Week 1'
-          WHEN "2025_week"::text = '2'  THEN 'Week 2'
-          WHEN "2025_week"::text = '3'  THEN 'Week 3'
-          WHEN "2025_week"::text = '4'  THEN 'Week 4'
-          WHEN "2025_week"::text = '5'  THEN 'Week 5'
-          WHEN "2025_week"::text = '6'  THEN 'Week 6'
+          WHEN "final_week"::text = '0'  THEN 'Week 0'
+          WHEN "final_week"::text = '1'  THEN 'Week 1'
+          WHEN "final_week"::text = '2'  THEN 'Week 2'
+          WHEN "final_week"::text = '3'  THEN 'Week 3'
+          WHEN "final_week"::text = '4'  THEN 'Week 4'
+          WHEN "final_week"::text = '5'  THEN 'Week 5'
+          WHEN "final_week"::text = '6'  THEN 'Week 6'
         END AS week_formatted,
-        SUM(CASE WHEN "2025_tier" = 'maniac-card' THEN 1 ELSE 0 END) AS maniac_card_count,
-        SUM(CASE WHEN "2025_tier" = 'maniac-vip-card' THEN 1 ELSE 0 END) AS maniac_vip_count,
+        SUM(CASE WHEN "final_tier" = 'maniac-card' THEN 1 ELSE 0 END) AS maniac_card_count,
+        SUM(CASE WHEN "final_tier" = 'maniac-vip-card' THEN 1 ELSE 0 END) AS maniac_vip_count,
         COUNT(*) AS total_count
     FROM maniac_neon.orders
-    WHERE "2025_type" = 'card'
-    GROUP BY "2025_week"
-    ORDER BY "2025_week"
+    WHERE "final_type" = 'card'
+    GROUP BY "final_week"
+    ORDER BY "final_week"
 )
 SELECT 
     week_formatted,
