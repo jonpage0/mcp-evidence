@@ -12,10 +12,10 @@ describe('DuckDBDatabase with real data', () => {
   // Skip tests if duckdb is not available
   const hasDuckDB = () => {
     try {
-      require('duckdb');
+      require('@duckdb/node-api');
       return true;
     } catch (e) {
-      console.warn('DuckDB not available, skipping database tests');
+      console.warn('@duckdb/node-api not available, skipping database tests');
       return false;
     }
   };
