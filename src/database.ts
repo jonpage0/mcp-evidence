@@ -19,22 +19,24 @@ interface DuckDBConnectionType {
 // Interface for DuckDB result as per actual API behavior
 interface DuckDBMaterializedResultType {
   // Properties
-  readonly rowCount: number;  // Getter, not a method
-  readonly chunkCount: number; // Getter, not a method
-  result: unknown; // Raw result object
+  readonly rowCount: number;        // Getter, not a method
+  readonly chunkCount: number;      // Getter, not a method
   
-  // Methods
+  // Methods for Neo API
+  columnNames(): string[];          // Get column names
+  columnTypes(): unknown[];         // Get column types
+  
+  // Methods for data access
   getChunk(index: number): DuckDBDataChunkType;
 }
 
 // Interface for DuckDB data chunk as per documentation
 interface DuckDBDataChunkType {
-  chunk: unknown;
-  vectors: unknown[];
-  
-  // Methods for accessing data
+  // Properties
   readonly columnCount: number; // Getter, not a method
   readonly rowCount: number;    // Getter, not a method
+  
+  // Methods for accessing data
   getColumnVector(index: number): DuckDBVectorType;
   getColumns(): DuckDBVectorType[];
   getRowValues(index: number): unknown[];
@@ -45,23 +47,6 @@ interface DuckDBDataChunkType {
 interface DuckDBVectorType {
   getValue(index: number): unknown;
   getValues(): unknown[];
-}
-
-// Extended interfaces for internal DuckDB structures - used for type declaration only
-interface DuckDBSchema {
-  names: string[];
-}
-
-interface DuckDBColumn {
-  name: string;
-}
-
-interface DuckDBColumnMeta {
-  name: string;
-}
-
-interface DuckDBChunkExtended extends DuckDBDataChunkType {
-  metadata?: DuckDBColumnMeta[];
 }
 
 /**
@@ -83,89 +68,6 @@ export class DuckDBDatabase {
   constructor(discovery: EvidenceDataDiscovery) {
     this.discovery = discovery;
     // We'll initialize the db lazily when needed
-  }
-  
-  /**
-   * Extracts column names from a SQL SELECT query
-   * 
-   * @param query The SQL query to parse
-   * @returns An array of column names if they can be extracted, or null if parsing fails
-   */
-  private extractColumnNames(query: string): string[] | null {
-    try {
-      // Normalize the query to make parsing easier
-      const normalizedQuery = query
-        .replace(/\s+/g, ' ')        // Replace multiple whitespace with single space
-        .replace(/\/\*.*?\*\//g, '') // Remove /* ... */ comments
-        .replace(/--.*?$/gm, '')     // Remove -- comments
-        .trim();
-      
-      // Get the part between SELECT and FROM (case insensitive)
-      const selectMatch = /SELECT\s+(.*?)\s+FROM/i.exec(normalizedQuery);
-      if (!selectMatch || !selectMatch[1]) {
-        return null;
-      }
-      
-      const selectClause = selectMatch[1].trim();
-      
-      // If there's a * with no AS, we can't determine column names
-      if (selectClause === '*') {
-        return null;
-      }
-      
-      // Split by commas, but respect parentheses (for functions like COUNT, SUM)
-      const parts: string[] = [];
-      let currentPart = '';
-      let parenthesesCount = 0;
-      
-      for (let i = 0; i < selectClause.length; i++) {
-        const char = selectClause[i];
-        
-        if (char === '(') {
-          parenthesesCount++;
-          currentPart += char;
-        } else if (char === ')') {
-          parenthesesCount--;
-          currentPart += char;
-        } else if (char === ',' && parenthesesCount === 0) {
-          parts.push(currentPart.trim());
-          currentPart = '';
-        } else {
-          currentPart += char;
-        }
-      }
-      
-      // Add the last part
-      if (currentPart.trim()) {
-        parts.push(currentPart.trim());
-      }
-      
-      // Extract column names from each part
-      return parts.map(part => {
-        // Check for explicit AS alias
-        const asMatch = /\s+AS\s+[\"\']?([a-zA-Z0-9_]+)[\"\']?$/i.exec(part);
-        if (asMatch?.[1]) {
-          return asMatch[1];
-        }
-        
-        // Check for implicit alias (last part after space or dot)
-        const implicitMatch = /[.\s]([a-zA-Z0-9_]+)$/i.exec(part);
-        if (implicitMatch?.[1]) {
-          return implicitMatch[1];
-        }
-        
-        // If it's a function call, use the whole function as name
-        if (part.includes('(') && part.includes(')')) {
-          return part.trim();
-        }
-        
-        // Fallback: use the whole part
-        return part.trim();
-      });
-    } catch (e) {
-      console.warn('Error parsing SQL for column names:', e);
-      return null;
-    }
   }
   
   /**
@@ -206,8 +108,8 @@ export class DuckDBDatabase {
       // Execute the query with or without parameters
       const result = await connection.run(query);
       
-      // Convert result to array of objects, passing the query for column name extraction
-      return this.resultToArray(result, query);
+      // Convert result to array of objects
+      return this.resultToArray(result);
     } catch (e) {
       console.error('Query execution error:', e);
       throw e;
@@ -288,8 +190,8 @@ export class DuckDBDatabase {
       // Execute the query
       const result = await connection.run(query);
       
-      // Convert to array of objects for compatibility, passing the query for column name extraction
-      return this.resultToArray(result, query);
+      // Convert to array of objects for compatibility
+      return this.resultToArray(result);
     } catch (e) {
       // Log the error and re-throw
       console.error(`Error executing query: ${(e as Error).message}`);
@@ -302,27 +204,19 @@ export class DuckDBDatabase {
    * Convert a DuckDB result to an array of objects.
    * 
    * @param result The DuckDB materialized result to convert.
-   * @param query Optional SQL query to extract column names from
    * @returns An array of objects representing the result rows.
    */
-  public resultToArray(result: duckdb.DuckDBMaterializedResult, query?: string): Record<string, unknown>[] {
+  public resultToArray(result: duckdb.DuckDBMaterializedResult): Record<string, unknown>[] {
     const rows: Record<string, unknown>[] = [];
     
     // Return empty array if no result
-    if (!result) return rows;
+    if (!result || result.chunkCount === 0) return rows;
     
-    // Try to extract column names directly from the result object
-    const directColumnNames = this.getColumnNamesFromResult(result);
-    
-    // Try to extract column names from the SQL query if provided and direct extraction failed
-    let extractedColumnNames: string[] | null = null;
-    if (!directColumnNames && query) {
-      extractedColumnNames = this.extractColumnNames(query);
-    }
+    // Get column names using DuckDB Neo API
+    const columnNames = this.getColumnNamesFromResult(result);
     
     try {
-      // Process using the DuckDB API
-      // Process each chunk of the result
+      // Process each chunk of the result to build rows
       const chunkCount = result.chunkCount;
       
       for (let c = 0; c < chunkCount; c++) {
@@ -335,18 +229,7 @@ export class DuckDBDatabase {
         const columnCount = chunk.columnCount;
         
         // Determine column names to use
-        let columnNames: string[];
-        
-        if (directColumnNames && directColumnNames.length === columnCount) {
-          // Prefer directly extracted column names
-          columnNames = directColumnNames;
-        } else if (extractedColumnNames && extractedColumnNames.length === columnCount) {
-          // Use the extracted column names from SQL if available and count matches
-          columnNames = extractedColumnNames;
-        } else {
-          // Fallback to generic names if parsing failed or count doesn't match
-          columnNames = Array.from({ length: columnCount }, (_, i) => `column${i}`);
-        }
+        const names = columnNames || Array.from({ length: columnCount }, (_, i) => `column${i}`);
         
         // Get all column data
         const columns = chunk.getColumns();
@@ -361,7 +244,7 @@ export class DuckDBDatabase {
             for (let i = 0; i < rowValues.length; i++) {
               // Handle BigInt values
               const value = rowValues[i];
-              rowData[columnNames[i]] = this.handleBigIntValue(value);
+              rowData[names[i]] = this.handleBigIntValue(value);
             }
             
             rows.push(rowData);
@@ -377,7 +260,7 @@ export class DuckDBDatabase {
           for (let i = 0; i < columnCount; i++) {
             // Handle BigInt values
             const value = columns[i][r];
-            rowData[columnNames[i]] = this.handleBigIntValue(value);
+            rowData[names[i]] = this.handleBigIntValue(value);
           }
           
           rows.push(rowData);
@@ -394,54 +277,16 @@ export class DuckDBDatabase {
   }
 
   /**
-   * Extract column names directly from DuckDB result metadata
+   * Get column names from the DuckDB result using the Neo API
    * 
-   * @param result DuckDB materialized result
-   * @returns Array of column names or null if extraction fails
+   * @param result DuckDB materialized result object
+   * @returns Array of column names or null if extraction fails 
    */
   private getColumnNamesFromResult(result: duckdb.DuckDBMaterializedResult): string[] | null {
     try {
-      // Try to extract column names in various ways depending on DuckDB version/structure
-      const unknownResult = result as unknown;
-      
-      // Method 1: Access schema.names property (common in newer versions)
-      const withSchema = unknownResult as { schema?: DuckDBSchema };
-      if (withSchema?.schema && Array.isArray(withSchema.schema.names)) {
-        return withSchema.schema.names;
+      if (typeof result.columnNames === 'function') {
+        return result.columnNames();
       }
-      
-      // Method 2: Access result.getColumns().name (used in some versions)
-      const withResultGetColumns = unknownResult as { 
-        result?: { getColumns?: () => DuckDBColumn[] } 
-      };
-      if (withResultGetColumns?.result?.getColumns) {
-        try {
-          const columns = withResultGetColumns.result.getColumns();
-          if (Array.isArray(columns)) {
-            return columns.map(col => col.name);
-          }
-        } catch (e) {
-          // Ignore failures for this method
-        }
-      }
-      
-      // Method 3: Try to access result.meta property (used in some versions)
-      const withMeta = unknownResult as { meta?: DuckDBColumnMeta[] };
-      if (Array.isArray(withMeta?.meta)) {
-        return withMeta.meta.map(column => column.name);
-      }
-      
-      // Method 4: Try to access chunk meta information
-      if (result.chunkCount > 0) {
-        const chunk = result.getChunk(0) as unknown as { 
-          metadata?: DuckDBColumnMeta[] 
-        };
-        if (Array.isArray(chunk?.metadata)) {
-          return chunk.metadata.map(column => column.name);
-        }
-      }
-      
-      // No method worked
       return null;
     } catch (e) {
       console.warn('Failed to extract column names from result:', e);

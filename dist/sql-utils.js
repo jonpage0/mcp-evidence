@@ -2,6 +2,89 @@
  * Utility functions for SQL query processing
  */
 /**
+ * Extract column names from a SELECT * FROM cte_name query with CTEs
+ *
+ * This function specifically handles the pattern where a query:
+ * 1. Has a WITH clause with one or more CTEs
+ * 2. Ends with SELECT * FROM cte_name
+ *
+ * @param query The SQL query to parse
+ * @returns Array of column names if they can be extracted, or null if parsing fails
+ */
+export function extractColumnsFromSelectStarCte(query) {
+    try {
+        // Normalize the query for easier parsing
+        const normalizedQuery = query
+            .replace(/\s+/g, ' ') // Replace multiple whitespace with single space
+            .replace(/\/\*.*?\*\//g, '') // Remove /* ... */ comments
+            .replace(/--.*?$/gm, '') // Remove -- comments
+            .trim();
+        // Check if the query ends with SELECT * FROM cte_name
+        const selectStarMatch = /SELECT\s+\*\s+FROM\s+([a-zA-Z0-9_]+)\s*;?\s*$/i.exec(normalizedQuery);
+        if (!selectStarMatch?.[1]) {
+            return null; // Not a SELECT * FROM cte_name pattern
+        }
+        const cteNameToFind = selectStarMatch[1];
+        // Find the CTE definition
+        const cteDefRegex = new RegExp(`${cteNameToFind}\\s+AS\\s*\\(\\s*SELECT\\s+([^;]+?)\\s+FROM`, 'i');
+        const cteDefMatch = cteDefRegex.exec(normalizedQuery);
+        if (!cteDefMatch?.[1]) {
+            return null; // Couldn't find the CTE definition
+        }
+        // Extract column names from the CTE's SELECT clause
+        const selectClause = cteDefMatch[1].trim();
+        // Split the select clause by commas, respecting parentheses
+        const parts = [];
+        let currentPart = '';
+        let parenthesesCount = 0;
+        for (let i = 0; i < selectClause.length; i++) {
+            const char = selectClause[i];
+            if (char === '(') {
+                parenthesesCount++;
+                currentPart += char;
+            }
+            else if (char === ')') {
+                parenthesesCount--;
+                currentPart += char;
+            }
+            else if (char === ',' && parenthesesCount === 0) {
+                parts.push(currentPart.trim());
+                currentPart = '';
+            }
+            else {
+                currentPart += char;
+            }
+        }
+        // Add the last part
+        if (currentPart.trim()) {
+            parts.push(currentPart.trim());
+        }
+        // Extract column names from each part
+        return parts.map(part => {
+            // Check for explicit AS alias
+            const asMatch = /\s+AS\s+[\"\']?([a-zA-Z0-9_]+)[\"\']?$/i.exec(part);
+            if (asMatch?.[1]) {
+                return asMatch[1];
+            }
+            // Check for implicit alias (last part after space or dot)
+            const implicitMatch = /[.\s]([a-zA-Z0-9_]+)$/i.exec(part);
+            if (implicitMatch?.[1]) {
+                return implicitMatch[1];
+            }
+            // If it's a function call, use the whole function as name
+            if (part.includes('(') && part.includes(')')) {
+                return part.trim();
+            }
+            // Fallback: use the whole part
+            return part.trim();
+        });
+    }
+    catch (e) {
+        console.warn('Error extracting columns from SELECT * with CTE:', e);
+        return null;
+    }
+}
+/**
  * Extracts column names from a SQL SELECT query
  *
  * @param query The SQL query to parse
@@ -86,6 +169,21 @@ export function extractColumnNames(query) {
  * @returns A new query with explicit column aliases
  */
 export function addExplicitColumnAliases(query) {
+    // First, check if this is a WITH...SELECT * FROM cte pattern
+    const withColumns = extractColumnsFromSelectStarCte(query);
+    if (withColumns) {
+        // For WITH...SELECT * FROM cte, we need to replace the * with explicit columns
+        const selectStarMatch = /SELECT\s+\*\s+FROM\s+([a-zA-Z0-9_]+)\s*;?\s*$/i.exec(query);
+        if (selectStarMatch) {
+            // Build a new SELECT clause with explicit column names
+            const columnsPart = withColumns.map(col => `${selectStarMatch[1]}.${col} AS "${col}"`).join(', ');
+            const newSelectClause = `SELECT ${columnsPart} FROM ${selectStarMatch[1]}`;
+            // Replace the original SELECT * FROM cte with our new clause
+            const newQuery = query.substring(0, selectStarMatch.index) + newSelectClause;
+            return newQuery;
+        }
+    }
+    // If not a special case, proceed with normal column alias addition
     const columnNames = extractColumnNames(query);
     if (!columnNames) {
         return query; // Return original if parsing fails
@@ -124,6 +222,7 @@ export function addExplicitColumnAliases(query) {
             parts.push(currentPart.trim());
         }
         // Add explicit AS clauses if not already present
+        // Regular column list
         const newParts = parts.map((part, index) => {
             if (index >= columnNames.length) {
                 return part; // More parts than names, return as-is

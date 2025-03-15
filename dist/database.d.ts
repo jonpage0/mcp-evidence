@@ -20,13 +20,6 @@ export declare class DuckDBDatabase {
      */
     constructor(discovery: EvidenceDataDiscovery);
     /**
-     * Extracts column names from a SQL SELECT query
-     *
-     * @param query The SQL query to parse
-     * @returns An array of column names if they can be extracted, or null if parsing fails
-     */
-    private extractColumnNames;
-    /**
      * Create and get a DuckDB connection.
      *
      * @returns A Promise resolving to a DuckDB connection.
@@ -67,14 +60,13 @@ export declare class DuckDBDatabase {
      * Convert a DuckDB result to an array of objects.
      *
      * @param result The DuckDB materialized result to convert.
-     * @param query Optional SQL query to extract column names from
      * @returns An array of objects representing the result rows.
      */
-    resultToArray(result: duckdb.DuckDBMaterializedResult, query?: string): Record<string, unknown>[];
+    resultToArray(result: duckdb.DuckDBMaterializedResult): Record<string, unknown>[];
     /**
-     * Extract column names directly from DuckDB result metadata
+     * Get column names from the DuckDB result using the Neo API
      *
-     * @param result DuckDB materialized result
+     * @param result DuckDB materialized result object
      * @returns Array of column names or null if extraction fails
      */
     private getColumnNamesFromResult;

@@ -75,7 +75,7 @@ This server provides the following MCP tools:
 - `evidence-list-sources` - List all data sources
 - `evidence-list-tables` - List all tables in a data source
 - `evidence-describe-table` - Get schema information for a table
-- `evidence-query` - Execute SQL queries on the data
+- `evidence_query` - Execute SQL queries on the data (tables should be referenced using source_name_table_name format)
 
 ## Using with Cline / Roo-Cline
 
@@ -105,7 +105,7 @@ For **Cline**, edit `~/.config/cline/config.json` (Linux/macOS) or `%APPDATA%\cl
       "args": ["--project-path", "/path/to/your/evidence/project"],
       "env": {},
       "disabled": false,
-      "alwaysAllow": ["evidence-list-sources", "evidence-list-tables"]
+      "alwaysAllow": ["evidence-list-sources", "evidence-list-tables", "evidence_query"]
     }
   }
 }
@@ -124,7 +124,7 @@ For **Roo-Cline**, edit:
       "args": ["--project-path", "/path/to/your/evidence/project"],
       "env": {},
       "disabled": false,
-      "alwaysAllow": ["evidence-list-sources", "evidence-list-tables"]
+      "alwaysAllow": ["evidence-list-sources", "evidence-list-tables", "evidence_query"]
     }
   }
 }
@@ -144,9 +144,25 @@ Once configured, you can use the MCP server in your conversations. For example:
 - "Show me all available data sources"
 - "Show me tables in the maniac_neon source"
 - "Query the orders table from maniac_neon"
-- "Run this SQL query: SELECT * FROM maniac_neon_orders LIMIT 10"
+- "Run this SQL query: SELECT * FROM maniac_neon_orders LIMIT 10" (Note the source_name_table_name format)
 
 The MCP server will expose Evidence.dev data sources to the LLM, allowing it to discover and query your data directly.
+
+## Table Naming Convention
+
+When writing SQL queries, tables should be referenced using the format `source_name_table_name`. For example:
+
+- `maniac_neon_orders` refers to the "orders" table in the "maniac_neon" source
+- `maniac_neon_2024_users` refers to the "users" table in the "maniac_neon_2024" source
+
+This format enables cross-source joins, for example:
+
+```sql
+SELECT u.full_name, COUNT(o.id) AS order_count 
+FROM maniac_neon_2024_users u 
+LEFT JOIN maniac_neon_orders o ON u.primary_email_address = o.m_email
+GROUP BY u.full_name
+```
 
 ## License
 

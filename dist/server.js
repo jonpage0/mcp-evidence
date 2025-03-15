@@ -129,9 +129,8 @@ export async function startServer(config) {
         try {
             // Add explicit column aliases to ensure column names are preserved
             const enhancedQuery = addExplicitColumnAliases(query);
+            // Execute the query - column names will be properly extracted via the DuckDB Neo API
             const results = await db.queryTable(enhancedQuery);
-            // Column names should now be properly extracted in resultToArray
-            // We don't need to rename columns here anymore as it's handled in database.ts
             return {
                 content: [{ type: 'text', text: safeJsonStringify(results) }]
             };
@@ -196,10 +195,10 @@ export async function startServer(config) {
                 else {
                     await connection.run(`CREATE VIEW "${viewName}" AS SELECT * FROM read_parquet('${parquetPath.replace(/'/g, "''")}')`);
                 }
-                // Execute the query
+                // Execute the query - column names will be automatically handled by the DuckDB Neo API
                 const result = await connection.run(`SELECT * FROM "${viewName}" LIMIT 100`);
                 // Use our helper method to convert the result to an array
-                const resultArray = db.resultToArray(result, `SELECT * FROM "${viewName}" LIMIT 100`);
+                const resultArray = db.resultToArray(result);
                 return {
                     contents: [{
                             uri: uri.href,
@@ -235,8 +234,6 @@ export async function startServer(config) {
             decodedQuery = addExplicitColumnAliases(decodedQuery);
             // Execute the query
             const results = await db.queryTable(decodedQuery);
-            // Column names should now be properly extracted in resultToArray
-            // We don't need to rename columns here anymore as it's handled in database.ts
             return {
                 contents: [{
                         uri: uri.href,
