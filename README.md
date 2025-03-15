@@ -75,7 +75,7 @@ This server provides the following MCP tools:
 - `evidence-list-sources` - List all data sources
 - `evidence-list-tables` - List all tables in a data source
 - `evidence-describe-table` - Get schema information for a table
-- `evidence_query` - Execute SQL queries on the data (tables should be referenced using source_name_table_name format)
+- `evidence-query` - Execute SQL queries on the data (tables should be referenced using source_name_table_name format)
 
 ## Using with Cline / Roo-Cline
 
@@ -105,7 +105,7 @@ For **Cline**, edit `~/.config/cline/config.json` (Linux/macOS) or `%APPDATA%\cl
       "args": ["--project-path", "/path/to/your/evidence/project"],
       "env": {},
       "disabled": false,
-      "alwaysAllow": ["evidence-list-sources", "evidence-list-tables", "evidence_query"]
+      "alwaysAllow": ["evidence-list-sources", "evidence-list-tables", "evidence-describe-table", "evidence-query"]
     }
   }
 }
@@ -124,7 +124,7 @@ For **Roo-Cline**, edit:
       "args": ["--project-path", "/path/to/your/evidence/project"],
       "env": {},
       "disabled": false,
-      "alwaysAllow": ["evidence-list-sources", "evidence-list-tables", "evidence_query"]
+      "alwaysAllow": ["evidence-list-sources", "evidence-list-tables", "evidence-describe-table", "evidence-query"]
     }
   }
 }
@@ -163,6 +163,31 @@ FROM maniac_neon_2024_users u
 LEFT JOIN maniac_neon_orders o ON u.primary_email_address = o.m_email
 GROUP BY u.full_name
 ```
+
+## Advanced Features
+
+### Column Name Preservation
+
+The MCP server preserves column names from SQL queries, including complex queries with Common Table Expressions (CTEs). This ensures that query results maintain meaningful column names rather than generic ones like "column0", "column1", etc.
+
+For example, when executing a CTE query like:
+
+```sql
+WITH sales_summary AS (
+  SELECT 
+    SUM(amount) AS total_sales,
+    COUNT(DISTINCT customer_id) AS customer_count
+  FROM maniac_neon_orders
+)
+SELECT * FROM sales_summary
+```
+
+The result will maintain the column names "total_sales" and "customer_count" rather than using generic names.
+
+This feature is especially useful when:
+- Working with complex queries that use CTEs
+- Using SQL functions and expressions that create computed columns
+- Analyzing data where column semantics are important
 
 ## License
 

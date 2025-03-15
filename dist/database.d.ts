@@ -64,7 +64,11 @@ export declare class DuckDBDatabase {
      */
     resultToArray(result: duckdb.DuckDBMaterializedResult): Record<string, unknown>[];
     /**
-     * Get column names from the DuckDB result using the Neo API
+     * Get column names from the DuckDB result using the DuckDB Neo API
+     *
+     * This is the preferred method for getting column names as it correctly
+     * preserves all column names from SQL queries, including complex CTEs
+     * and queries with computed columns or aliases.
      *
      * @param result DuckDB materialized result object
      * @returns Array of column names or null if extraction fails

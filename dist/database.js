@@ -152,7 +152,8 @@ export class DuckDBDatabase {
         // Return empty array if no result
         if (!result || result.chunkCount === 0)
             return rows;
-        // Get column names using DuckDB Neo API
+        // Get column names using DuckDB Neo API - this preserves column names from SQL queries
+        // including aliases, computed columns, and columns from Common Table Expressions (CTEs)
         const columnNames = this.getColumnNamesFromResult(result);
         try {
             // Process each chunk of the result to build rows
@@ -203,7 +204,11 @@ export class DuckDBDatabase {
         }
     }
     /**
-     * Get column names from the DuckDB result using the Neo API
+     * Get column names from the DuckDB result using the DuckDB Neo API
+     *
+     * This is the preferred method for getting column names as it correctly
+     * preserves all column names from SQL queries, including complex CTEs
+     * and queries with computed columns or aliases.
      *
      * @param result DuckDB materialized result object
      * @returns Array of column names or null if extraction fails
