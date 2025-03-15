@@ -151,9 +151,10 @@ export async function startServer(config: Config): Promise<void> {
   server.tool(
     'evidence-query',
     {
-      query: z.string().describe('SQL query to execute')
+      query: z.string().describe('SQL query to execute'),
+      maxResults: z.number().optional().describe('Maximum number of rows to return (default: 10)')
     },
-    async ({ query }) => {
+    async ({ query, maxResults }) => {
       try {
         // Add explicit column aliases to ensure column names are preserved
         const enhancedQuery = addExplicitColumnAliases(query);
@@ -161,8 +162,24 @@ export async function startServer(config: Config): Promise<void> {
         // Execute the query - column names will be properly extracted via the DuckDB Neo API
         const results = await db.queryTable(enhancedQuery);
         
+        // Apply result limiting if specified or using default limit
+        const limitedResults = results.slice(0, maxResults || config.defaultResultLimit || 10);
+        
+        // Include metadata about limiting if applied
+        const resultMeta = {
+          total: results.length,
+          returned: limitedResults.length,
+          limited: results.length > limitedResults.length
+        };
+        
         return {
-          content: [{ type: 'text', text: safeJsonStringify(results) }]
+          content: [{ 
+            type: 'text', 
+            text: safeJsonStringify({
+              results: limitedResults,
+              meta: resultMeta
+            }) 
+          }]
         };
       } catch (e) {
         const error = e as Error;
@@ -244,11 +261,24 @@ export async function startServer(config: Config): Promise<void> {
           // Use our helper method to convert the result to an array
           const resultArray = db.resultToArray(result);
           
+          // Apply result limiting using default limit
+          const limitedResults = resultArray.slice(0, config.defaultResultLimit);
+          
+          // Include metadata about limiting if applied
+          const resultMeta = {
+            total: resultArray.length,
+            returned: limitedResults.length,
+            limited: resultArray.length > limitedResults.length
+          };
+          
           return {
             contents: [{
               uri: uri.href,
               mimeType: 'application/json',
-              text: safeJsonStringify(resultArray)
+              text: safeJsonStringify({
+                results: limitedResults,
+                meta: resultMeta
+              })
             }]
           };
         } catch (e) {
@@ -285,11 +315,24 @@ export async function startServer(config: Config): Promise<void> {
         // Execute the query
         const results = await db.queryTable(decodedQuery);
         
+        // Apply result limiting using default limit
+        const limitedResults = results.slice(0, config.defaultResultLimit);
+        
+        // Include metadata about limiting if applied
+        const resultMeta = {
+          total: results.length,
+          returned: limitedResults.length,
+          limited: results.length > limitedResults.length
+        };
+        
         return {
           contents: [{
             uri: uri.href,
             mimeType: 'application/json',
-            text: safeJsonStringify(results)
+            text: safeJsonStringify({
+              results: limitedResults,
+              meta: resultMeta
+            })
           }]
         };
       } catch (e) {

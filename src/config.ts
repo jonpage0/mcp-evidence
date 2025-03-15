@@ -16,6 +16,8 @@ export interface ConfigOptions {
   debug?: boolean;
   /** Run server in read-only mode. Always true for Evidence.dev MCP server. */
   readonly?: boolean;
+  /** Default maximum number of results to return from queries. */
+  defaultResultLimit?: number;
 }
 
 /**
@@ -34,6 +36,9 @@ export class Config {
   /** Enable debug logging. */
   readonly debug: boolean = false;
 
+  /** Default maximum number of results to return from queries. */
+  readonly defaultResultLimit: number = 10;
+
   /**
    * Create a new configuration.
    * 
@@ -44,6 +49,7 @@ export class Config {
     this.dataPath = options.dataPath;
     this.readonly = options.readonly !== undefined ? options.readonly : true;
     this.debug = options.debug || false;
+    this.defaultResultLimit = options.defaultResultLimit || 10;
 
     // Validate project path
     if (!fs.existsSync(this.projectPath)) {

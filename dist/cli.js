@@ -16,6 +16,7 @@ export async function main() {
         .version('0.1.0')
         .requiredOption('--project-path <path>', 'Path to the Evidence.dev project')
         .option('--data-path <path>', 'Optional override for the data directory path')
+        .option('--default-result-limit <number>', 'Default maximum number of results to return from queries (default: 10)', (value) => Number.parseInt(value, 10))
         .option('--debug', 'Enable debug logging')
         .parse(process.argv);
     const options = program.opts();
@@ -28,7 +29,8 @@ export async function main() {
         const config = new Config({
             projectPath: options.projectPath,
             dataPath: options.dataPath,
-            debug: options.debug || false
+            debug: options.debug || false,
+            defaultResultLimit: options.defaultResultLimit
         });
         // Start the server
         await startServer(config);

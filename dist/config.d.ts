@@ -10,6 +10,8 @@ export interface ConfigOptions {
     debug?: boolean;
     /** Run server in read-only mode. Always true for Evidence.dev MCP server. */
     readonly?: boolean;
+    /** Default maximum number of results to return from queries. */
+    defaultResultLimit?: number;
 }
 /**
  * Configuration for the Evidence.dev MCP server.
@@ -23,6 +25,8 @@ export declare class Config {
     readonly readonly: boolean;
     /** Enable debug logging. */
     readonly debug: boolean;
+    /** Default maximum number of results to return from queries. */
+    readonly defaultResultLimit: number;
     /**
      * Create a new configuration.
      *
