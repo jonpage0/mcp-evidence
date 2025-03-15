@@ -55,12 +55,12 @@ export function extractColumnNames(query) {
         return parts.map(part => {
             // Check for explicit AS alias
             const asMatch = /\s+AS\s+[\"\']?([a-zA-Z0-9_]+)[\"\']?$/i.exec(part);
-            if (asMatch && asMatch[1]) {
+            if (asMatch?.[1]) {
                 return asMatch[1];
             }
             // Check for implicit alias (last part after space or dot)
             const implicitMatch = /[.\s]([a-zA-Z0-9_]+)$/i.exec(part);
-            if (implicitMatch && implicitMatch[1]) {
+            if (implicitMatch?.[1]) {
                 return implicitMatch[1];
             }
             // If it's a function call, use the whole function as name

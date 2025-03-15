@@ -47,6 +47,23 @@ interface DuckDBVectorType {
   getValues(): unknown[];
 }
 
+// Extended interfaces for internal DuckDB structures - used for type declaration only
+interface DuckDBSchema {
+  names: string[];
+}
+
+interface DuckDBColumn {
+  name: string;
+}
+
+interface DuckDBColumnMeta {
+  name: string;
+}
+
+interface DuckDBChunkExtended extends DuckDBDataChunkType {
+  metadata?: DuckDBColumnMeta[];
+}
+
 /**
  * Interface to DuckDB for querying Evidence.dev parquet files.
  */
@@ -385,23 +402,23 @@ export class DuckDBDatabase {
   private getColumnNamesFromResult(result: duckdb.DuckDBMaterializedResult): string[] | null {
     try {
       // Try to extract column names in various ways depending on DuckDB version/structure
+      const unknownResult = result as unknown;
       
       // Method 1: Access schema.names property (common in newer versions)
-      const resultAsAny = result as any;
-      if (resultAsAny?.schema && typeof resultAsAny.schema === 'object') {
-        if (Array.isArray(resultAsAny.schema.names)) {
-          return resultAsAny.schema.names;
-        }
+      const withSchema = unknownResult as { schema?: DuckDBSchema };
+      if (withSchema?.schema && Array.isArray(withSchema.schema.names)) {
+        return withSchema.schema.names;
       }
       
       // Method 2: Access result.getColumns().name (used in some versions)
-      if (resultAsAny?.result && typeof resultAsAny.result === 'object') {
+      const withResultGetColumns = unknownResult as { 
+        result?: { getColumns?: () => DuckDBColumn[] } 
+      };
+      if (withResultGetColumns?.result?.getColumns) {
         try {
-          if (typeof resultAsAny.result.getColumns === 'function') {
-            const columns = resultAsAny.result.getColumns();
-            if (Array.isArray(columns)) {
-              return columns.map((col: any) => col.name);
-            }
+          const columns = withResultGetColumns.result.getColumns();
+          if (Array.isArray(columns)) {
+            return columns.map(col => col.name);
           }
         } catch (e) {
           // Ignore failures for this method
@@ -409,15 +426,18 @@ export class DuckDBDatabase {
       }
       
       // Method 3: Try to access result.meta property (used in some versions)
-      if (Array.isArray(resultAsAny?.meta)) {
-        return resultAsAny.meta.map((column: any) => column.name);
+      const withMeta = unknownResult as { meta?: DuckDBColumnMeta[] };
+      if (Array.isArray(withMeta?.meta)) {
+        return withMeta.meta.map(column => column.name);
       }
       
       // Method 4: Try to access chunk meta information
       if (result.chunkCount > 0) {
-        const chunk = result.getChunk(0) as any;
-        if (chunk && Array.isArray(chunk.metadata)) {
-          return chunk.metadata.map((column: any) => column.name);
+        const chunk = result.getChunk(0) as unknown as { 
+          metadata?: DuckDBColumnMeta[] 
+        };
+        if (Array.isArray(chunk?.metadata)) {
+          return chunk.metadata.map(column => column.name);
         }
       }
       

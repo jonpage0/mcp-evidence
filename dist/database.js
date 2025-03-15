@@ -305,21 +305,19 @@ export class DuckDBDatabase {
     getColumnNamesFromResult(result) {
         try {
             // Try to extract column names in various ways depending on DuckDB version/structure
+            const unknownResult = result;
             // Method 1: Access schema.names property (common in newer versions)
-            const resultAsAny = result;
-            if (resultAsAny?.schema && typeof resultAsAny.schema === 'object') {
-                if (Array.isArray(resultAsAny.schema.names)) {
-                    return resultAsAny.schema.names;
-                }
+            const withSchema = unknownResult;
+            if (withSchema?.schema && Array.isArray(withSchema.schema.names)) {
+                return withSchema.schema.names;
             }
             // Method 2: Access result.getColumns().name (used in some versions)
-            if (resultAsAny?.result && typeof resultAsAny.result === 'object') {
+            const withResultGetColumns = unknownResult;
+            if (withResultGetColumns?.result?.getColumns) {
                 try {
-                    if (typeof resultAsAny.result.getColumns === 'function') {
-                        const columns = resultAsAny.result.getColumns();
-                        if (Array.isArray(columns)) {
-                            return columns.map((col) => col.name);
-                        }
+                    const columns = withResultGetColumns.result.getColumns();
+                    if (Array.isArray(columns)) {
+                        return columns.map(col => col.name);
                     }
                 }
                 catch (e) {
@@ -327,14 +325,15 @@ export class DuckDBDatabase {
                 }
             }
             // Method 3: Try to access result.meta property (used in some versions)
-            if (Array.isArray(resultAsAny?.meta)) {
-                return resultAsAny.meta.map((column) => column.name);
+            const withMeta = unknownResult;
+            if (Array.isArray(withMeta?.meta)) {
+                return withMeta.meta.map(column => column.name);
             }
             // Method 4: Try to access chunk meta information
             if (result.chunkCount > 0) {
                 const chunk = result.getChunk(0);
-                if (chunk && Array.isArray(chunk.metadata)) {
-                    return chunk.metadata.map((column) => column.name);
+                if (Array.isArray(chunk?.metadata)) {
+                    return chunk.metadata.map(column => column.name);
                 }
             }
             // No method worked
